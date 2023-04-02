@@ -1,3 +1,7 @@
+// yarn add eslint@latest
+// yarn eslint --init
+// yarn add eslint-plugin-react@latest @typescript-eslint/parser@latest @typescript-eslint/eslint-plugin@latest eslint-plugin-react-hooks@latest
+
 {
   "env": {
     "browser": true,
