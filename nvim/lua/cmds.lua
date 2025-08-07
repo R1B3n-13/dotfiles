@@ -44,3 +44,9 @@ vim.api.nvim_create_autocmd("ModeChanged", {
 		pcall(vim.diagnostic.show)
 	end,
 })
+
+vim.api.nvim_create_autocmd("VimLeave", {
+	group = vim.api.nvim_create_augroup("RestoreCursorShapeOnExit", { clear = true }),
+	pattern = "*",
+	command = "set guicursor=a:ver25-blinkon1-blinkoff1-blinkwait1",
+})

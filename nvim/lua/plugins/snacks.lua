@@ -16,7 +16,46 @@ return {
 
 		animate = {},
 
-		dashboard = {},
+		-- Enable notifications
+		notifier = {
+			enabled = true,
+			timeout = 3000, -- 3 seconds
+			width = { min = 40, max = 0.4 },
+			height = { min = 1, max = 0.6 },
+			margin = { top = 0, right = 1, bottom = 0 },
+			padding = { top = 0, right = 1, bottom = 0, left = 1 },
+			sort = { "level", "added" }, -- sort by level, then by time added
+			level = vim.log.levels.TRACE, -- minimum log level to show
+			icons = {
+				error = " ",
+				warn = " ",
+				info = " ",
+				debug = " ",
+				trace = " ",
+			},
+			keep = function(notif)
+				return vim.fn.getcmdtype() ~= ""
+			end,
+			style = "comapact", -- "compact" | "fancy" | "minimal"
+			top_down = true, -- place notifications from top to bottom
+			date_format = "%R", -- time format for notifications
+			more_format = " ↓ %d lines ",
+			refresh = 50,
+		},
+
+		dashboard = {
+			preset = {
+				header = [[
+  ██████   █████                   █████   █████  ███                  
+░░██████ ░░███                   ░░███   ░░███  ░░░                  
+ ░███░███ ░███   ██████   ██████  ░███    ░███  ████  █████████████  
+ ░███░░███░███  ███░░███ ███░░███ ░███    ░███ ░░███ ░░███░░███░░███ 
+ ░███ ░░██████ ░███████ ░███ ░███ ░░███   ███   ░███  ░███ ░███ ░███ 
+ ░███  ░░█████ ░███░░░  ░███ ░███  ░░░█████░    ░███  ░███ ░███ ░███ 
+ █████  ░░█████░░██████ ░░██████     ░░███      █████ █████░███ █████
+░░░░░    ░░░░░  ░░░░░░   ░░░░░░       ░░░      ░░░░░ ░░░░░ ░░░ ░░░░░ ]],
+			},
+		},
 
 		scroll = {},
 
@@ -229,6 +268,21 @@ return {
 				Snacks.picker.lsp_workspace_symbols()
 			end,
 			desc = "LSP Workspace Symbols",
+		},
+		-- Notifications
+		{
+			"<leader>nd",
+			function()
+				Snacks.notifier.hide()
+			end,
+			desc = "Dismiss All Notifications",
+		},
+		{
+			"<leader>nh",
+			function()
+				Snacks.notifier.show_history()
+			end,
+			desc = "Show Notification History",
 		},
 		-- Other
 		{

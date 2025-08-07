@@ -44,6 +44,8 @@ map("n", "<C-Right>", ":vertical resize +3<CR>")
 -- Barbar
 map("n", "<Tab>", ":BufferNext<CR>", { desc = "Move to next tab", noremap = true })
 map("n", "<S-Tab>", ":BufferPrevious<CR>", { desc = "Move to previous tab", noremap = true })
+map("n", "<A-<>", ":BufferMovePrevious<CR>", { desc = "Reorder to previous", noremap = true })
+map("n", "<A->>", ":BufferMoveNext<CR>", { desc = "Reorder to next", noremap = true })
 map("n", "<A-1>", ":BufferGoto 1<CR>", { desc = "Move to tab no. 1", noremap = true })
 map("n", "<A-2>", ":BufferGoto 2<CR>", { desc = "Move to tab no. 2", noremap = true })
 map("n", "<A-3>", ":BufferGoto 3<CR>", { desc = "Move to tab no. 3", noremap = true })
