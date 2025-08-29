@@ -44,7 +44,39 @@ return {
 					mason = true,
 				},
 			})
-			vim.cmd.colorscheme("catppuccin-mocha")
+			-- vim.cmd.colorscheme("catppuccin-mocha")
+		end,
+	},
+	{
+		"scottmckendry/cyberdream.nvim",
+		lazy = false,
+		priority = 1000,
+		config = function()
+			require("cyberdream").setup({
+				variant = "default",
+				transparent = false,
+				saturation = 0.95,
+				italic_comments = true,
+				borderless_pickers = false,
+				terminal_colors = true,
+				extensions = {
+					blinkcmp = true,
+					lazy = true,
+					noice = true,
+					notify = true,
+					snacks = true,
+					treesitter = true,
+					treesittercontext = true,
+					trouble = true,
+					whichkey = true,
+				},
+				colors = {
+					dark = {
+						bg_highlight = "#2a2d33",
+					},
+				},
+			})
+			vim.cmd.colorscheme("cyberdream")
 		end,
 	},
 }

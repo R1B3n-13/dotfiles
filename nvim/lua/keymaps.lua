@@ -44,6 +44,13 @@ map("n", "<C-Down>", "<cmd>resize +3<cr>")
 map("n", "<C-Left>", "<cmd>vertical resize -3<cr>")
 map("n", "<C-Right>", "<cmd>vertical resize +3<cr>")
 
+-- Copy Current File Path
+map("n", "<leader>p", function()
+	local path = vim.fn.expand("%:p")
+	vim.fn.setreg("+", path)
+	vim.notify("Copied file path: " .. path, vim.log.levels.INFO)
+end, { desc = "Copy file path" })
+
 -- Barbar
 map("n", "<Tab>", "<cmd>BufferNext<CR>", { desc = "Move to next tab" })
 map("n", "<S-Tab>", "<cmd>BufferPrevious<CR>", { desc = "Move to previous tab" })
