@@ -5,7 +5,7 @@ return {
 		config = function()
 			require("tokyonight").setup({
 				style = "night",
-				transparent = false,
+				transparent = true,
 				terminal_colors = true,
 				styles = {
 					sidebars = "dark",
@@ -24,7 +24,7 @@ return {
 		config = function()
 			require("catppuccin").setup({
 				flavor = "mocha",
-				transparent_background = false,
+				transparent_background = true,
 				term_colors = true,
 				styles = {
 					comments = { "italic" },
@@ -34,6 +34,9 @@ return {
 				},
 				integrations = {
 					treesitter = true,
+					blink_cmp = {
+						style = "bordered",
+					},
 					notify = true,
 					noice = true,
 					which_key = true,
@@ -52,10 +55,12 @@ return {
 		lazy = false,
 		priority = 1000,
 		config = function()
+			local mocha = require("catppuccin.palettes").get_palette("mocha")
+			local frappe = require("catppuccin.palettes").get_palette("frappe")
 			require("cyberdream").setup({
 				variant = "default",
-				transparent = false,
-				saturation = 0.95,
+				transparent = true,
+				saturation = 1,
 				italic_comments = true,
 				borderless_pickers = false,
 				terminal_colors = true,
@@ -72,7 +77,20 @@ return {
 				},
 				colors = {
 					dark = {
-						bg_highlight = "#2a2d33",
+						bg = mocha.base,
+						bg_alt = mocha.mantle,
+						bg_highlight = frappe.crust,
+						fg = mocha.text,
+						grey = mocha.subtext0,
+						blue = mocha.blue,
+						green = mocha.green,
+						cyan = mocha.sapphire,
+						red = mocha.red,
+						yellow = mocha.yellow,
+						magenta = mocha.pink,
+						pink = mocha.pink,
+						orange = mocha.peach,
+						purple = mocha.mauve,
 					},
 				},
 			})

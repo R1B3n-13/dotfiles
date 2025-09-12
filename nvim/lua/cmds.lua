@@ -6,6 +6,14 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 	end,
 })
 
+vim.api.nvim_create_autocmd("ColorScheme", {
+	desc = "Set normal float highlight (makes snacks explorer & picker transparent)",
+	pattern = "*",
+	callback = function()
+		vim.api.nvim_set_hl(0, "NormalFloat", { bg = "NONE" })
+	end,
+})
+
 local og_virt_text
 local og_virt_line
 vim.api.nvim_create_autocmd({ "CursorMoved", "DiagnosticChanged" }, {
