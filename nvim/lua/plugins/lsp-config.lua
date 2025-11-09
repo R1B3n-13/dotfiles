@@ -20,6 +20,7 @@ return {
 				"ts_ls",
 				"tailwindcss",
 				"jsonls",
+				"gopls",
 			},
 			automatic_enable = false,
 		},
@@ -28,18 +29,28 @@ return {
 		"neovim/nvim-lspconfig",
 		event = { "BufReadPre", "BufNewFile" },
 		config = function()
-			local capabilities = require("blink.cmp").get_lsp_capabilities()
-			local lspconfig = require("lspconfig")
-			lspconfig.bashls.setup({ capabilities = capabilities })
-			lspconfig.cssls.setup({ capabilities = capabilities })
-			lspconfig.lua_ls.setup({ capabilities = capabilities })
-			lspconfig.pylsp.setup({ capabilities = capabilities })
-			lspconfig.clangd.setup({ capabilities = capabilities })
-			lspconfig.html.setup({ capabilities = capabilities })
-			lspconfig.ts_ls.setup({ capabilities = capabilities })
-			lspconfig.tailwindcss.setup({ capabilities = capabilities })
-			lspconfig.jsonls.setup({ capabilities = capabilities })
+			local blink = require("blink.cmp")
+			local capabilities = blink.get_lsp_capabilities()
 
+			local servers = {
+				"bashls",
+				"cssls",
+				"lua_ls",
+				"pylsp",
+				"clangd",
+				"html",
+				"ts_ls",
+				"tailwindcss",
+				"jsonls",
+				"gopls",
+			}
+
+			for _, server in ipairs(servers) do
+				vim.lsp.config(server, { capabilities = capabilities })
+				vim.lsp.enable(server)
+			end
+
+			--Keybinds
 			vim.keymap.set("n", "K", vim.lsp.buf.hover, {})
 			vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code action" })
 			-- Currently these are getting handled by Snacks.picker --

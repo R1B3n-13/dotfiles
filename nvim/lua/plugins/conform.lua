@@ -28,6 +28,7 @@ return {
 				css = { "prettierd" },
 				markdown = { "prettierd" },
 				cpp = { "clang-format" },
+				go = { "gofmt" },
 			},
 			default_format_opts = {
 				lsp_format = "fallback",
