@@ -24,7 +24,7 @@ return {
 		config = function()
 			require("catppuccin").setup({
 				flavor = "mocha",
-				transparent_background = true,
+				transparent_background = false,
 				term_colors = true,
 				styles = {
 					comments = { "italic" },
@@ -33,6 +33,9 @@ return {
 					conditionals = {},
 				},
 				integrations = {
+					barbar = true,
+					flash = true,
+					ufo = true,
 					treesitter = true,
 					blink_cmp = {
 						style = "bordered",
@@ -43,11 +46,20 @@ return {
 					lsp_trouble = true,
 					snacks = {
 						enabled = true,
+						indent_scope_color = "lavender",
 					},
 					mason = true,
 				},
+				custom_highlights = function(colors)
+					return {
+						SnacksPicker = { nocombine = true },
+						SnacksPickerBorder = { nocombine = true },
+						NormalFloat = { bg = colors.base },
+						FloatBorder = { bg = colors.base },
+					}
+				end,
 			})
-			-- vim.cmd.colorscheme("catppuccin-mocha")
+			vim.cmd.colorscheme("catppuccin-mocha")
 		end,
 	},
 	{
@@ -56,10 +68,9 @@ return {
 		priority = 1000,
 		config = function()
 			local mocha = require("catppuccin.palettes").get_palette("mocha")
-			local frappe = require("catppuccin.palettes").get_palette("frappe")
 			require("cyberdream").setup({
 				variant = "default",
-				transparent = true,
+				transparent = false,
 				saturation = 1,
 				italic_comments = true,
 				borderless_pickers = false,
@@ -79,7 +90,7 @@ return {
 					dark = {
 						bg = mocha.base,
 						bg_alt = mocha.mantle,
-						bg_highlight = frappe.crust,
+						bg_highlight = mocha.surface0,
 						fg = mocha.text,
 						grey = mocha.subtext0,
 						blue = mocha.blue,
@@ -94,7 +105,7 @@ return {
 					},
 				},
 			})
-			vim.cmd.colorscheme("cyberdream")
+			-- vim.cmd.colorscheme("cyberdream")
 		end,
 	},
 }
