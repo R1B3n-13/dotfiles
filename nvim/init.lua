@@ -1,6 +1,6 @@
-require("vim-options")
-require("keymaps")
-require("cmds")
+require("configs.vim-options")
+require("configs.keymaps")
+require("configs.cmds")
 
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then

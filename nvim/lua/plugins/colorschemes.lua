@@ -5,7 +5,7 @@ return {
 		config = function()
 			require("tokyonight").setup({
 				style = "night",
-				transparent = true,
+				transparent = false,
 				terminal_colors = true,
 				styles = {
 					sidebars = "dark",
@@ -14,7 +14,6 @@ return {
 					keywords = { italic = true },
 				},
 			})
-			-- vim.cmd.colorscheme("tokyonight-night")
 		end,
 	},
 	{
@@ -59,53 +58,10 @@ return {
 					}
 				end,
 			})
-			vim.cmd.colorscheme("catppuccin-mocha")
-		end,
-	},
-	{
-		"scottmckendry/cyberdream.nvim",
-		lazy = false,
-		priority = 1000,
-		config = function()
-			local mocha = require("catppuccin.palettes").get_palette("mocha")
-			require("cyberdream").setup({
-				variant = "default",
-				transparent = false,
-				saturation = 1,
-				italic_comments = true,
-				borderless_pickers = false,
-				terminal_colors = true,
-				extensions = {
-					blinkcmp = true,
-					lazy = true,
-					noice = true,
-					notify = true,
-					snacks = true,
-					treesitter = true,
-					treesittercontext = true,
-					trouble = true,
-					whichkey = true,
-				},
-				colors = {
-					dark = {
-						bg = mocha.base,
-						bg_alt = mocha.mantle,
-						bg_highlight = mocha.surface0,
-						fg = mocha.text,
-						grey = mocha.subtext0,
-						blue = mocha.blue,
-						green = mocha.green,
-						cyan = mocha.sapphire,
-						red = mocha.red,
-						yellow = mocha.yellow,
-						magenta = mocha.pink,
-						pink = mocha.pink,
-						orange = mocha.peach,
-						purple = mocha.mauve,
-					},
-				},
-			})
-			-- vim.cmd.colorscheme("cyberdream")
+
+			-- Initialize theme switcher
+			local theme_switcher = require("utils.theme-switcher")
+			theme_switcher.setup()
 		end,
 	},
 }
