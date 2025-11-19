@@ -64,4 +64,19 @@ return {
 			theme_switcher.setup()
 		end,
 	},
+	{
+		"rose-pine/neovim",
+		name = "rose-pine",
+		priority = 1000,
+		config = function()
+			require("rose-pine").setup({
+				variant = "auto",
+				dark_variant = "main",
+				styles = {
+					transparency = true,
+					italic = true,
+				},
+			})
+		end,
+	},
 }

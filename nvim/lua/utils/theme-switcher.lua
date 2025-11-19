@@ -10,6 +10,9 @@ M.theme_map = {
 	["tokyonight-storm"] = "tokyonight-storm",
 	["tokyonight-day"] = "tokyonight-day",
 	["tokyonight-moon"] = "tokyonight-moon",
+	["rose-pine"] = "rose-pine",
+	["rose-pine-moon"] = "rose-pine-moon",
+	["rose-pine-dawn"] = "rose-pine-dawn",
 }
 
 -- Theme persistence file
@@ -81,21 +84,56 @@ end
 
 -- Show theme selection menu
 function M.show_menu()
-	local themes = {
+	-- Get current theme
+	local current_theme = M.load_theme() or vim.g.colors_name
+
+	-- define light and dark theme lists separately
+	local light_themes = {
 		{ name = "Catppuccin Latte", value = "catppuccin-latte" },
+		{ name = "Tokyo Night Day", value = "tokyonight-day" },
+		{ name = "Rose Pine Dawn", value = "rose-pine-dawn" },
+	}
+
+	local dark_themes = {
 		{ name = "Catppuccin Frappé", value = "catppuccin-frappe" },
 		{ name = "Catppuccin Macchiato", value = "catppuccin-macchiato" },
 		{ name = "Catppuccin Mocha", value = "catppuccin-mocha" },
 		{ name = "Tokyo Night", value = "tokyonight-night" },
 		{ name = "Tokyo Night Storm", value = "tokyonight-storm" },
-		{ name = "Tokyo Night Day", value = "tokyonight-day" },
 		{ name = "Tokyo Night Moon", value = "tokyonight-moon" },
+		{ name = "Rose Pine", value = "rose-pine" },
+		{ name = "Rose Pine Moon", value = "rose-pine-moon" },
 	}
 
-	vim.ui.select(themes, {
+	-- Create categorized list with visual separators in the display text
+	local all_themes = {}
+
+	-- Add light themes with category suffix
+	for _, t in ipairs(light_themes) do
+		local is_current = t.value == current_theme
+		table.insert(all_themes, {
+			name = t.name,
+			value = t.value,
+			display = (is_current and " " or "  ") .. t.name .. " ",
+			category = "light",
+		})
+	end
+
+	-- Add dark themes with category suffix
+	for _, t in ipairs(dark_themes) do
+		local is_current = t.value == current_theme
+		table.insert(all_themes, {
+			name = t.name,
+			value = t.value,
+			display = (is_current and " " or "  ") .. t.name .. " ",
+			category = "dark",
+		})
+	end
+
+	vim.ui.select(all_themes, {
 		prompt = "Select Theme:",
 		format_item = function(item)
-			return item.name
+			return item.display
 		end,
 	}, function(choice)
 		if choice then
