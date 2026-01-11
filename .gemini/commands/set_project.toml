@@ -1,0 +1,4 @@
+description = "Select a project directory and set it as the current project"
+prompt = """
+!{selected_dir=$(zenity --file-selection --directory --title="Select Project Directory"); if [ $? -eq 0 ] && [ -n "$selected_dir" ]; then project_name=$(basename "$selected_dir"); mkdir -p .gemini; echo "$project_name" > .gemini/current_project; echo "Current project set to: $project_name"; else echo "No directory selected or cancelled"; fi}
+"""

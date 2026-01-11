@@ -1,0 +1,17 @@
+description = "Generate a detailed plan inside '.gemini/plan' directory"
+prompt = """
+Please create a detailed plan for this task/project. DO NOT write any code or start implementation yet - just the plan.
+
+Save the plan as a markdown file in the following location:
+!{mkdir -p .gemini/plan && echo ".gemini/plan/plan_$(date +%Y%m%d_%H%M%S).md"}
+
+The plan should be comprehensive and include relevant sections such as:
+- Overview and objectives
+- Key requirements or considerations
+- Approach and methodology
+- Steps or phases
+- Potential challenges and solutions
+- Any other relevant planning details
+
+Focus only on planning and documentation.
+"""

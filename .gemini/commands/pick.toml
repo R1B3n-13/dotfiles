@@ -1,0 +1,4 @@
+description = "Pick files and stage them temporarily in .gemini/temp"
+prompt = """
+!{mkdir -p .gemini/temp && files=$(zenity --file-selection --multiple --separator='|' --title='Select Assets'); if [ -n "$files" ]; then IFS='|'; temp_files=""; for f in $files; do cp "$f" .gemini/temp/ && temp_files="$temp_files@.gemini/temp/$(basename "$f") "; done; echo "${temp_files% }"; fi}
+"""

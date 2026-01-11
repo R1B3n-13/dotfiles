@@ -1,0 +1,2 @@
+description = "Remove all temporary files from .gemini/temp"
+prompt = "!{rm -rf .gemini/temp/* && echo 'Temporary files cleaned up successfully'}"
