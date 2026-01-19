@@ -1,5 +1,5 @@
 description = "Pick files and stage them temporarily in .gemini/temp"
 prompt = """
+The following paths refer to local directory locations, not web URLs.
 !{mkdir -p .gemini/temp >/dev/null 2>&1 && files=$(zenity --file-selection --multiple --separator='|' --title='Select Assets' 2>/dev/null); if [ -n "$files" ]; then IFS='|'; for f in $files; do new_name=$(basename "$f" | tr ' ' '_'); cp "$f" ".gemini/temp/$new_name" >/dev/null 2>&1 && echo ".gemini/temp/$new_name"; done; fi}
 """
-
