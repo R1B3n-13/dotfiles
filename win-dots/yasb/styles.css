@@ -1,0 +1,503 @@
+/*
+.widget .label {} -> Global label for all
+.active-window-widget {} -> Styles specific to the active window widget
+.clock-widget {} -> Styles specific to the clock widget
+.cpu-widget {} -> Styles specific to the CPU widget
+.memory-widget {} -> Styles specific to the memory widget
+.weather-widget {} -> Styles specific to the weather widget
+.komorebi-workspaces {} -> Styles specific to komorebi workspaces
+.komorebi-active-layout {} -> Styles specific to komorebi active layout
+.volume-widget {} -> Styles specific to the volume widget 
+.apps-widget {} -> Styles specific to the apps widget
+.power-menu-widget {} -> Styles for the power menu button widget
+.power-menu-popup {} -> Styles for the power menu popup widget
+.power-menu-popup > .button {} -> Styles for power buttons inside the popup 
+.power-menu-popup > .button > .icon,
+.power-menu-popup > .button > .label {} -> Styles for power buttons icons and labels inside the popup 
+.media-widget {} -> Styles specific to the media widget
+.github-widget {} -> Styles specific to the github widget
+*/
+* {
+	font-size: 13px;
+	color: #cdd6f4;
+	font-weight: 500;
+	font-family: "JetBrainsMono NFP";
+	margin: 0;
+	padding: 0;
+}
+.yasb-bar {
+	padding: 3px 8px;
+	margin: 0;
+    	background-color: rgba(146, 145, 155, 0.16);
+}
+.widget {
+	padding: 0 8px;
+	margin: 0;
+}
+ 
+ 
+ 
+.container-left,
+.container-center,
+.container-right {
+	margin: 0;
+	padding: 0;
+}
+.active-window-widget .icon {
+    margin-right: 8px;
+}
+
+.komorebi-active-layout .label {
+	font-weight: 600;
+	padding: 2px 0 0 0;
+}
+.komorebi-workspaces .widget-container {
+    	background-color: rgba(188, 195, 207, 0.178);
+    	margin: 4px 0;
+    	padding: 0 8px;
+    	border-radius: 12px;
+}
+.komorebi-workspaces .ws-btn {
+  	width: 15px;
+    	height: 15px;
+	font-size: 14px;
+    	background-color: transparent;
+	margin: 0 4px 0 4px;
+	color: #95a0ad;
+	border: none;
+    	outline: none;
+}
+.komorebi-workspaces .ws-btn.populated {
+	color: #a0c3ee;
+}
+.komorebi-workspaces .ws-btn:hover,
+.komorebi-workspaces .ws-btn.populated:hover,
+.komorebi-workspaces .ws-btn.active {
+	color: #c2daf7;
+}
+
+/*POWER MENU WIDGET*/
+/* Uptime text */
+.uptime {
+	font-size: 14px;
+	margin-bottom: 10px;
+	color: #ffffff;
+	font-weight: 600;
+	font-family: "Segoe UI";
+}
+.power-menu-widget .label {
+	color: #f38ba8;
+	font-size: 14px;
+}
+.power-menu-popup {
+	background-color: rgba(24, 24, 37, 0.9);
+	border-radius: 12px;
+	border: 4px solid rgb(41, 42, 58);
+}
+.power-menu-popup .button {
+	padding: 0;
+	width: 240px;
+	height: 120px;
+	border-radius: 8px;
+	background-color: rgb(41, 42, 58);
+	font-family: "JetBrainsMono NFP";
+	color: white;
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	margin: 8px;
+}
+.power-menu-popup .button.hover {
+	background-color: rgb(55, 56, 75);
+	border: 1px solid rgb(55, 56, 75);
+}
+.power-menu-popup .button .label {
+	margin-right: 10px;
+	margin-left: 10px;
+	margin-bottom: 8px;
+	font-size: 15px;
+	font-weight: 600;
+	color: rgba(255, 255, 255, 0.95);
+	font-family: "Segoe UI";
+}
+.power-menu-popup .button .icon {
+	font-size: 48px;
+	padding-top: 8px;
+	color: rgba(255, 255, 255, 0.25);
+}
+.power-menu-popup .button.cancel .icon {
+	color: rgba(243, 139, 168, 0.55);
+}
+.power-menu-popup .button.cancel .label {
+	color: rgba(243, 139, 168, 0.95);
+}
+.power-menu-popup .button.shutdown .icon {
+	color: rgba(137, 180, 250, 0.55);
+}
+.power-menu-popup .button.shutdown .label {
+	color: rgba(137, 180, 250, 0.95);
+}
+
+/* ICONS */
+.icon {
+	font-size: 16px;
+}
+.volume-widget .icon {
+	color: #89b4fa;
+}
+ 
+.cpu-widget .icon,
+.memory-widget .icon,
+.volume-widget .icon,
+.weather-widget .icon,
+.wifi-widget .icon {
+	margin: 0 6px 1px 0;
+}
+.cpu-widget .icon,
+.memory-widget .icon {
+	font-size: 14px;
+	color: #cba6f7;
+}
+.memory-widget .icon {
+	color: #a6c9f7;
+}
+.wifi-widget .icon {
+    font-size: 14px;
+	color: #43d8d8;
+}
+.weather-widget .icon.sunnyDay {
+	color: rgb(221, 210, 107);
+}
+.weather-widget .icon.clearNight {
+	color: rgb(107, 189, 221);
+	font-size: 22px;
+}
+
+/* MEDIA WIDGET */
+.media-widget {
+	padding: 0;
+	padding-left: 2px;
+	margin: 0;
+	border-radius: 16px;
+	margin-right: 8px;
+}
+.media-widget .label {
+	background-color: rgba(0, 0, 0, 0.0);
+}
+.media-widget .btn {
+	color: #acb2c9;
+	padding: 0 3px;
+	margin: 4px 0;
+	font-family: Segoe Fluent Icons;
+}
+.media-widget .btn:hover {
+	color: #89b4fa;
+}
+.media-widget .btn.play {
+	font-size: 14px;
+}
+.media-widget .btn.disabled:hover,
+.media-widget .btn.disabled {
+	color: #4e525c;
+	font-size: 12px;
+	background-color: rgba(0, 0, 0, 0);
+}
+
+/* Quick Launch Widget */
+.quick-launch-widget .icon {
+	font-size: 14px;
+	padding: 0 4px;
+}
+.quick-launch-widget .icon:hover {
+	color: #fff;
+}
+
+/* Quick Launch Popup - main window */
+.quick-launch-popup .container {
+	background-color: rgba(29, 29, 29, 0.452);
+}
+/* Search bar container */
+.quick-launch-popup .search {
+	padding: 12px 16px;
+	background-color: transparent;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+/* Search loader line color */
+.quick-launch-popup .search .loader-line {
+	color: #449bff;
+}
+.quick-launch-popup .search .search-icon {
+	font-family: "Segoe Fluent Icons";
+	font-size: 18px;
+	color: rgba(255, 255, 255, 0.6);
+	padding-right: 8px;
+	min-width: 18px;
+}
+.quick-launch-popup .search .search-submit-icon {
+	font-family: "Segoe Fluent Icons";
+	font-size: 18px;
+	color: rgba(255, 255, 255, 0.6);
+	min-width: 18px;
+}
+.quick-launch-popup .search .search-input {
+	background: transparent;
+	border: none;
+	color: #ffffff;
+	font-size: 16px;
+	font-family: "Segoe UI";
+	font-weight: 400;
+	padding: 4px 0;
+}
+/* Search prefix styling (e.g., ">" for commands) */
+.quick-launch-popup .search .prefix {
+	background: #2167d8;
+	border-radius: 6px;
+	color: #ffffff;
+	padding: -2px 8px 0px 8px;
+	margin-top: 2px;
+	margin-right: 4px;
+	font-size: 13px;
+	font-weight: 600;
+	font-family: "Segoe UI";
+	max-height: 28px;
+}
+
+/* Results list */
+.quick-launch-popup .results {
+	background: transparent;
+	padding: 8px;
+}
+/* Individual result item here you can set font szie for title */
+.quick-launch-popup .results-list-view {
+	font-size: 16px;
+	font-family: "Segoe UI";
+	font-weight: 600;
+	color: #ffffff;
+}
+.quick-launch-popup .results-list-view .description {
+	color: rgba(255, 255, 255, 0.6);
+	font-size: 11px;
+	font-family: "Segoe UI";
+	font-weight: 600;
+}
+/* Result item hover and selected states */
+.quick-launch-popup .results-list-view::item {
+	padding: 12px;
+	border-radius: 8px;
+}
+.quick-launch-popup .results-list-view::item:hover,
+.quick-launch-popup .results-list-view::item:selected {
+	background-color: rgba(128, 130, 158, 0.1);
+}
+/* Empty state when no results found */
+.quick-launch-popup .results-empty-text {
+	font-size: 24px;
+	font-family: "Segoe UI";
+	color: rgb(255, 255, 255);
+	padding-top: 8px;
+}
+
+/* Preview Pane */
+.quick-launch-popup .preview {
+	background: rgba(0, 0, 0, 0);
+	border-left: 1px solid rgba(255, 255, 255, 0.06);
+}
+.quick-launch-popup .preview .preview-text {
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.85);
+	padding: 8px 12px;
+	font-family: "Segoe UI";
+	background-color: rgba(255, 255, 255, 0.03);
+	border: none;
+}
+.quick-launch-popup .preview .preview-image {
+	background-color: rgba(255, 255, 255, 0.03);
+	padding: 8px 12px;
+}
+.quick-launch-popup .preview .preview-meta {
+	padding: 6px 12px;
+	border-top: 1px solid rgba(255, 255, 255, 0.06);
+	font-family: "Segoe UI";
+}
+.quick-launch-popup .preview .preview-meta .preview-title {
+	font-size: 14px;
+	font-weight: 600;
+	color: rgb(255, 255, 255);
+	font-family: "Segoe UI";
+	margin-bottom: 10px;
+	margin-left: -2px;
+}
+
+.quick-launch-popup .preview .preview-meta .preview-subtitle {
+	font-size: 12px;
+	color: rgba(255, 255, 255, 0.8);
+	font-family: "Segoe UI";
+	padding-bottom: 1px;
+}
+
+/* Preview inline edit form (.preview.edit) */
+.quick-launch-popup .preview.edit .preview-title {
+	font-size: 13px;
+	font-family: "Segoe UI";
+	font-weight: 600;
+	color: #ffffff;
+	padding: 8px 12px 4px 12px;
+}
+.quick-launch-popup .preview.edit .preview-line-edit {
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 4px;
+	color: #ffffff;
+	font-size: 13px;
+	font-family: "Segoe UI";
+	padding: 6px 8px;
+	margin: 0 12px;
+}
+.quick-launch-popup .preview.edit .preview-line-edit:focus {
+	border-color: rgba(255, 255, 255, 0.3);
+}
+.quick-launch-popup .preview.edit .preview-text-edit {
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 4px;
+	color: #ffffff;
+	font-size: 13px;
+	font-family: "Segoe UI";
+	padding: 6px 8px;
+	margin: 0 12px;
+}
+.quick-launch-popup .preview.edit .preview-text-edit:focus {
+	border-color: rgba(255, 255, 255, 0.3);
+}
+.quick-launch-popup .preview.edit .preview-actions {
+	padding: 8px 12px;
+}
+.quick-launch-popup .preview.edit .preview-btn {
+	background: rgb(45, 46, 48);
+	border: none;
+	border-radius: 4px;
+	color: rgba(255, 255, 255, 0.8);
+	font-size: 12px;
+	font-family: "Segoe UI";
+	font-weight: 600;
+	padding: 4px 16px;
+}
+.quick-launch-popup .preview.edit .preview-btn:hover {
+	background: rgb(59, 60, 63);
+}
+.quick-launch-popup .preview.edit .preview-btn.save {
+	background: rgb(12, 81, 190);
+	color: #ffffff;
+}
+.quick-launch-popup .preview.edit .preview-btn.save:hover {
+	background: rgb(19, 90, 204);
+}
+
+/*SYSTEM TRAY*/
+/* SYSTRAY WIDGET */
+.systray {
+    background: transparent;
+    border: none;
+    margin: 0;
+}
+.systray .unpinned-container {
+    background: rgba(188, 195, 207, 0.178);
+    border-radius: 14px;
+    padding-left: 8px;
+    padding-right: 8px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+.systray .pinned-container {
+    background: transparent;
+}
+.systray .pinned-container[forceshow=true] {
+    background: rgba(243, 139, 168, 0.3);
+}
+.systray .button {
+    border-radius: 4px;
+    padding: 2px 2px;
+}
+.systray .button:hover {
+    background: rgba(188, 195, 207, 0.178);
+}
+.systray .button[dragging=true] {
+    background: rgba(137, 180, 250, 0.3);
+    border-color: #89b4fa;
+}
+.systray .unpinned-visibility-btn {
+    border-radius: 4px;
+    height: 20px;
+    width: 16px;
+    padding-right: 2px;
+}
+.systray .unpinned-visibility-btn:checked {
+  margin-right: 4px;
+  padding: 0;
+}
+.systray .unpinned-visibility-btn:hover {
+    background: rgba(188, 195, 207, 0.178);
+}
+
+/*VOLUME WIDGET*/
+.volume-widget .icon {
+	color: #74b0ff;;
+	margin:0 2px 0 0;
+}
+.audio-menu {
+    background-color:rgba(17, 17, 27, 0.4); 
+    min-width: 300px;
+}
+/* System volume */
+.audio-menu .system-volume-container .volume-slider {
+    border: none;
+}
+/* Device list styles */
+.audio-menu .audio-container .device {
+    background-color:transparent;
+    border: none;
+    padding:6px 8px 6px 4px;
+    margin: 2px 0;
+    font-size: 12px;
+    border-radius: 4px;
+}
+.audio-menu .audio-container .device.selected {
+    background-color: rgba(255, 255, 255, 0.085);
+   
+}
+.audio-menu .audio-container .device:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+/* Toggle button for application volumes (if is enabled) */
+.audio-menu .toggle-apps {
+    background-color: transparent;
+    border: none;
+    padding-right: 3px;
+    margin-left: 2px;
+    min-height: 24px;
+    min-width: 24px;
+    border-radius: 4px;
+}
+.audio-menu .toggle-apps.expanded {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+.audio-menu .toggle-apps:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    
+}
+/* Container for application volumes (if is enabled) */
+.audio-menu .apps-container {
+    padding: 8px;
+    margin-top: 17px;
+    border-radius: 8px;
+    background-color:rgba(255, 255, 255, 0.062)
+}
+.audio-menu .apps-container .app-volume .app-icon-container {
+    min-width: 40px;
+    min-height: 40px;
+    max-width: 40px;
+    max-height: 40px;
+    border-radius: 6px;
+    margin-right: 8px;
+}
+.audio-menu .apps-container .app-volume .app-icon-container:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
