@@ -82,14 +82,14 @@ config.keys = {
   -- New tab
   {
     key = 'T',
-    mods = 'ALT|SHIFT',
+    mods = 'CTRL|SHIFT',
     action = wezterm.action.SpawnTab 'CurrentPaneDomain',
   },
 
   -- Close current tab
   {
     key = 'Q',
-    mods = 'ALT|SHIFT',
+    mods = 'CTRL|SHIFT',
     action = wezterm.action.CloseCurrentTab { confirm = false },
   },
 
@@ -107,13 +107,13 @@ config.keys = {
 -- Move tab left
   {
     key = 'B',
-    mods = 'ALT|SHIFT',
+    mods = 'CTRL|SHIFT',
     action = wezterm.action.MoveTabRelative(-1),
   },
   -- Move tab right
   {
     key = 'N',
-    mods = 'ALT|SHIFT',
+    mods = 'CTRL|SHIFT',
     action = wezterm.action.MoveTabRelative(1),
   },
 }
