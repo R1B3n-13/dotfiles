@@ -1,8 +1,13 @@
 return {
 	"nvim-treesitter/nvim-treesitter-textobjects",
-	dependencies = { "nvim-treesitter/nvim-treesitter" },
+	branch = "main",
+
+	init = function()
+		vim.g.no_plugin_maps = true
+	end,
+
 	config = function()
-		require("nvim-treesitter.configs").setup({
+		require("nvim-treesitter-textobjects").setup({
 			textobjects = {
 				select = {
 					enable = true,
@@ -66,7 +71,7 @@ return {
 		})
 
 		-- Setup repeatable movements
-		local ts_repeat_move = require("nvim-treesitter.textobjects.repeatable_move")
+		local ts_repeat_move = require("nvim-treesitter-textobjects.repeatable_move")
 
 		vim.keymap.set({ "n", "x", "o" }, ";", ts_repeat_move.repeat_last_move_next, { desc = "Repeat last move" })
 		vim.keymap.set(
