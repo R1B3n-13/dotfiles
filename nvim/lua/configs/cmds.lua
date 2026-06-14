@@ -58,3 +58,31 @@ vim.api.nvim_create_autocmd("VimLeave", {
 	pattern = "*",
 	command = "set guicursor=a:ver25-blinkon1-blinkoff1-blinkwait1",
 })
+
+vim.api.nvim_create_autocmd("BufWinLeave", {
+	desc = "Make Neovim remember folds when leaving a buffer",
+	pattern = "*.*",
+	callback = function()
+		vim.cmd("silent! mkview")
+	end,
+})
+
+vim.api.nvim_create_autocmd("BufWinEnter", {
+	desc = "Load remembered folds when entering a buffer",
+	pattern = "*.*",
+	callback = function()
+		vim.cmd("silent! loadview")
+	end,
+})
+
+vim.api.nvim_create_autocmd({ "BufWinEnter", "BufEnter" }, {
+	desc = "Make fold column disappear for snacks dashboard",
+	callback = function()
+		vim.schedule(function()
+			if vim.bo.filetype == "snacks_dashboard" then
+				vim.opt_local.foldcolumn = "0"
+				vim.opt_local.foldenable = false
+			end
+		end)
+	end,
+})
