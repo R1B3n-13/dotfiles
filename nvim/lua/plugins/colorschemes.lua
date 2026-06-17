@@ -22,7 +22,7 @@ return {
 		priority = 1000,
 		config = function()
 			require("catppuccin").setup({
-				flavor = "mocha",
+				flavor = "auto",
 				transparent_background = false,
 				term_colors = true,
 				styles = {
@@ -78,5 +78,11 @@ return {
 				},
 			})
 		end,
+	},
+	{
+		"bluz71/vim-moonfly-colors",
+		name = "moonfly",
+		lazy = false,
+		priority = 1000,
 	},
 }
