@@ -31,3 +31,4 @@ vim.opt.inccommand = "split"
 vim.opt.scrolloff = 10
 vim.opt.confirm = true
 vim.opt.winborder = "rounded"
+vim.opt.viewdir = vim.fn.stdpath("config") .. "/view"

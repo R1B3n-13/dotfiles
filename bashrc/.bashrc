@@ -4,7 +4,7 @@
 # If not running interactively, don't do anything
 case $- in
     *i*) ;;
-      *) return;;
+    *) return ;;
 esac
 
 # ═══════════════════════════════════════════════════════════════════
@@ -35,21 +35,21 @@ shopt -s extglob                 # Extended pattern matching
 # ═══════════════════════════════════════════════════════════════════
 # COLOR AND STYLING DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════
-# 256-color support
-RED='\[\e[38;5;196m\]'          LIGHT_RED='\[\e[38;5;203m\]'
-GREEN='\[\e[38;5;46m\]'         LIGHT_GREEN='\[\e[38;5;118m\]'
-YELLOW='\[\e[38;5;226m\]'       ORANGE='\[\e[38;5;208m\]'
-BLUE='\[\e[38;5;39m\]'          LIGHT_BLUE='\[\e[38;5;117m\]'
-PURPLE='\[\e[38;5;141m\]'       MAGENTA='\[\e[38;5;201m\]'
-CYAN='\[\e[38;5;51m\]'          LIGHT_CYAN='\[\e[38;5;159m\]'
-WHITE='\[\e[38;5;255m\]'        GRAY='\[\e[38;5;244m\]'
-DARK_GRAY='\[\e[38;5;236m\]'    RESET='\[\e[0m\]'
+# ANSI system colors (color0-color15) — automatically follow terminal theme
+RED='\[\e[31m\]'            LIGHT_RED='\[\e[91m\]'
+GREEN='\[\e[32m\]'          LIGHT_GREEN='\[\e[92m\]'
+YELLOW='\[\e[33m\]'         ORANGE='\[\e[33m\]'
+BLUE='\[\e[34m\]'           LIGHT_BLUE='\[\e[94m\]'
+PURPLE='\[\e[35m\]'         MAGENTA='\[\e[95m\]'
+CYAN='\[\e[36m\]'           LIGHT_CYAN='\[\e[96m\]'
+WHITE='\[\e[97m\]'          GRAY='\[\e[37m\]'
+DARK_GRAY='\[\e[90m\]'      RESET='\[\e[0m\]'
 
 # Nerd Font Icons
 ICON_GIT=""             # Git branch
-ICON_FOLDER="📁"         # Folder
-ICON_HOME="🏠"           # Home
-ICON_ROOT="🗲"           # Root
+ICON_FOLDER=""          # Folder
+ICON_HOME=""            # Home
+ICON_ROOT="🗲"            # Root
 ICON_ARROW="➜"           # Arrow
 ICON_SUCCESS="✓"         # Success
 ICON_FAIL="✗"            # Failure
@@ -57,8 +57,11 @@ ICON_DIRTY="󰅙"           # Git dirty
 ICON_CLEAN="󰗠"           # Git clean
 ICON_AHEAD=""           # Git ahead
 ICON_BEHIND=""          # Git behind
-ICON_PYTHON="🐍"         # Python env
-ICON_NODE="🐢"           # Node env
+ICON_PYTHON=" "         # Python env
+ICON_NODE=" "           # Node env
+ICON_STASH=""           # Git stash
+ICON_COOL="󰱫"            # Startup emo
+ICON_SSH=""             # SSH
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -66,25 +69,25 @@ ICON_NODE="🐢"           # Node env
 # ═══════════════════════════════════════════════════════════════════
 git_info() {
     local git_dir branch status ahead behind dirty stash
-    
+
     # Check if we're in a git repository
     git_dir=$(git rev-parse --git-dir 2>/dev/null) || return
-    
+
     # Get branch name
     branch=$(git symbolic-ref --short HEAD 2>/dev/null || git describe --tags --exact-match 2>/dev/null || git rev-parse --short HEAD 2>/dev/null)
-    
+
     # Check if repository is dirty
     if [[ -n $(git status --porcelain 2>/dev/null) ]]; then
         dirty=" ${RED}${ICON_DIRTY} "
     else
         dirty=" ${GREEN}${ICON_CLEAN} "
     fi
-    
+
     # Check for stashes
     if git rev-parse --verify refs/stash >/dev/null 2>&1; then
-        stash="${YELLOW}📦"
+        stash="${YELLOW}${ICON_STASH}"
     fi
-    
+
     # Check commits ahead/behind
     local ahead_behind
     ahead_behind=$(git rev-list --count --left-right @{upstream}...HEAD 2>/dev/null)
@@ -94,7 +97,7 @@ git_info() {
         [[ "$ahead" -gt 0 ]] && ahead="${GREEN}${ICON_AHEAD}${ahead} " || ahead=""
         [[ "$behind" -gt 0 ]] && behind="${RED}${ICON_BEHIND}${behind} " || behind=""
     fi
-    
+
     # Combine git info
     echo " ${GRAY}on ${PURPLE}${ICON_GIT}${branch}${dirty}${ahead}${behind}${stash}${RESET}"
 }
@@ -107,7 +110,7 @@ python_env() {
         local env_name=$(basename "$VIRTUAL_ENV")
         echo " ${GRAY}via ${YELLOW}${ICON_PYTHON} ${env_name}${RESET}"
     elif [[ -n "$CONDA_DEFAULT_ENV" ]]; then
-        echo " ${GRAY}via ${YELLOW}${ICON_PYTHON}${CONDA_DEFAULT_ENV}${RESET}"
+        echo " ${GRAY}via ${YELLOW}${ICON_PYTHON}${WHITE}${CONDA_DEFAULT_ENV}${RESET}"
     fi
 }
 
@@ -117,7 +120,7 @@ python_env() {
 node_env() {
     if [[ -f "package.json" ]] && command -v node >/dev/null 2>&1; then
         local node_version=$(node -v 2>/dev/null | sed 's/v//')
-        echo " ${GRAY}via ${GREEN}${ICON_NODE}${node_version}${RESET}"
+        echo " ${GRAY}via ${LIGHT_GREEN}${ICON_NODE}${WHITE}${node_version}${RESET}"
     fi
 }
 
@@ -129,10 +132,10 @@ short_pwd() {
     local pwd_length=15
     local pwd_symbol="…"
     local current_pwd=$(pwd)
-    
+
     # Replace home directory with ~
     current_pwd=${current_pwd/#$HOME/\~}
-    
+
     if [[ ${#current_pwd} -gt $pwd_length ]]; then
         echo "${pwd_symbol}${current_pwd:$((${#current_pwd}-$pwd_length+1))}"
     else
@@ -148,7 +151,7 @@ user_host() {
         echo "${RED}${ICON_ROOT} \u${RESET}${GRAY}@${RED}\h${RESET}"
     else
         if [[ -n "$SSH_CLIENT" || -n "$SSH_TTY" ]]; then
-            echo "${YELLOW}📡 \u${RESET}${GRAY}@${ORANGE}\h${RESET}"
+            echo "${YELLOW}${ICON_SSH} \u${RESET}${GRAY}@${ORANGE}\h${RESET}"
         else
             echo "${CYAN}\u${RESET}${GRAY}@${LIGHT_BLUE}\h${RESET}"
         fi
@@ -160,9 +163,9 @@ user_host() {
 # ═══════════════════════════════════════════════════════════════════
 dir_icon() {
     if [[ "$PWD" == "$HOME" ]]; then
-        echo "${ICON_HOME}"
+        echo "${BLUE}${ICON_HOME}"
     else
-        echo "${ICON_FOLDER}"
+        echo "${YELLOW}${ICON_FOLDER}"
     fi
 }
 
@@ -171,7 +174,7 @@ dir_icon() {
 # ═══════════════════════════════════════════════════════════════════
 set_prompt() {
     local exit_code=$?
-    
+
     # Status indicator
     local status_indicator
     if [[ $exit_code -eq 0 ]]; then
@@ -179,17 +182,17 @@ set_prompt() {
     else
         status_indicator="${RED}${ICON_FAIL} ${exit_code}${RESET}"
     fi
-    
+
     # Build the prompt
     PS1="\n${GRAY}╭─${RESET}"
     PS1+=" $(user_host)"
-    PS1+=" ${GRAY}in ${BLUE}$(dir_icon) $(short_pwd)${RESET}"
+    PS1+=" ${GRAY}in $(dir_icon) ${LIGHT_RED}$(short_pwd)${RESET}"
     PS1+="$(git_info)"
     PS1+="$(python_env)"
     PS1+="$(node_env)"
     PS1+="${timer_display}"
     PS1+="\n${GRAY}╰─${RESET} ${status_indicator} ${CYAN}${ICON_ARROW}${RESET} "
-    
+
     # Window title
     echo -ne "\e]0;$(whoami)@$(hostname): $(short_pwd)\a"
 }
@@ -344,4 +347,12 @@ fi
 # Source local customizations
 [[ -f ~/.bashrc.local ]] && . ~/.bashrc.local
 
-echo "💻 I'm not lazy, I'm just in energy-saving mode."
+echo "${ICON_COOL} I'm not lazy, I'm just in energy-saving mode."
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+
+export PATH=$PATH:/usr/local/go/bin
+export GOOGLE_CLOUD_PROJECT="th-dev-gemini"
