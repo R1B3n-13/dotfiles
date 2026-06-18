@@ -14,6 +14,7 @@ M.theme_map = {
 	["rose-pine-moon"] = "rose-pine-moon",
 	["rose-pine-dawn"] = "rose-pine-dawn",
 	["moonfly"] = "moonfly",
+	["deepwhite"] = "deepwhite",
 }
 
 -- Theme persistence file
@@ -98,6 +99,7 @@ function M.show_menu()
 		{ name = "Catppuccin Latte", value = "catppuccin-latte" },
 		{ name = "Tokyo Night Day", value = "tokyonight-day" },
 		{ name = "Rose Pine Dawn", value = "rose-pine-dawn" },
+		{ name = "DeepWhite", value = "deepwhite" },
 	}
 
 	local dark_themes = {

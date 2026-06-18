@@ -85,4 +85,13 @@ return {
 		lazy = false,
 		priority = 1000,
 	},
+	{
+		"Verf/deepwhite.nvim",
+		priority = 1000,
+		config = function()
+			require("deepwhite").setup({
+				low_blue_light = false,
+			})
+		end,
+	},
 }
