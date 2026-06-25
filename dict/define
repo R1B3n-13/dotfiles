@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+if [ -z "$1" ]; then
+    echo "Usage: define <word>"
+    exit 1
+fi
+
+# 1. Try the exact lookup
+output=$(dict "$1" 2>&1)
+
+# 2. If it fails, look for alternative suggestions
+if echo "$output" | grep -q "No definitions found"; then
+    suggestions=$(dict -m -s lev "$1" 2>/dev/null | cut -d: -f2- | tr -s ' ' '\n' | grep -v '^$' | tr '[:upper:]' '[:lower:]' | sort -u)
+
+    if [ -z "$suggestions" ]; then
+        echo "$output"
+        exit 0
+    fi
+
+    count=$(echo "$suggestions" | wc -l)
+
+    if [ "$count" -eq 1 ]; then
+        if [ -t 0 ]; then
+            echo -e "\033[1;33mNo exact match for '$1'. Showing definition for '$suggestions' instead:\033[0m\n"
+        else
+            echo "Exact match for '$1' not found. Showing definition for '$suggestions' instead."
+            echo "========================================================================"
+            echo ""
+        fi
+        dict "$suggestions"
+    else
+        # Check if stdin is a terminal (Interactive mode)
+        if [ -t 0 ]; then
+            echo -e "\033[1;33mNo exact match for '$1'. Did you mean one of these?\033[0m"
+            PS3="Enter a number (or Ctrl+C to exit): "
+            select choice in $suggestions; do
+                if [ -n "$choice" ]; then
+                    echo -e "\n\033[1;32mShowing definition for '$choice':\033[0m\n"
+                    dict "$choice"
+                    break
+                else
+                    echo "Invalid option."
+                fi
+            done
+        else
+            # Non-interactive mode (e.g., called by bookokrat).
+            best_guess=$(echo "$suggestions" | head -n 1)
+            
+            # Format other alternatives into a clean, comma-separated string
+            alternatives=$(echo "$suggestions" | tail -n +2 | paste -sd, - | sed 's/,/, /g')
+
+            # Print a clear plain-text header that bookokrat will display
+            echo "Exact match for '$1' not found."
+            echo "Showing definition for '$best_guess' instead."
+            if [ -n "$alternatives" ]; then
+                echo "Other close matches found: $alternatives"
+            fi
+            echo "========================================================================"
+            echo ""
+            
+            dict "$best_guess"
+        fi
+    fi
+else
+    echo "$output"
+fi

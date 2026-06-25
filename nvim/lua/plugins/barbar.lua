@@ -13,6 +13,7 @@ return {
 			icons = {
 				filetype = {
 					custom_icons = false,
+					custom_colors = true,
 				},
 				pinned = { button = "", filename = true },
 			},
