@@ -53,10 +53,6 @@ return {
 			--Keybinds
 			vim.keymap.set("n", "K", vim.lsp.buf.hover, {})
 			vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, { desc = "Code action" })
-			-- Currently these are getting handled by Snacks.picker --
-			-- vim.keymap.set("n", "<leader>gD", vim.lsp.buf.declaration, { desc = "Declaration" })
-			-- vim.keymap.set("n", "<leader>gd", vim.lsp.buf.definition, { desc = "Definitions" })
-			-- vim.keymap.set("n", "<leader>gr", vim.lsp.buf.references, { desc = "References" })
 		end,
 	},
 }

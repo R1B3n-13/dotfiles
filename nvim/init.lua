@@ -1,7 +1,14 @@
-require("configs.vim-options")
+-- Enable the experimental 0.12 UI layer
+pcall(function()
+	require("vim._core.ui2").enable()
+end)
+
+-- Load modular configurations
+require("configs.options")
 require("configs.keymaps")
 require("configs.cmds")
 
+-- Bootstrap Lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.uv.fs_stat(lazypath) then
 	vim.fn.system({
@@ -9,7 +16,7 @@ if not vim.uv.fs_stat(lazypath) then
 		"clone",
 		"--filter=blob:none",
 		"https://github.com/folke/lazy.nvim.git",
-		"--branch=stable", -- latest stable release
+		"--branch=stable",
 		lazypath,
 	})
 end
@@ -17,13 +24,14 @@ vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
 	spec = {
-		{ import = "plugins" }, -- loads all plugins in plugins/
+		{ import = "plugins" },
 	},
 	defaults = {
-		lazy = false, -- plugins are not lazy loaded by default
+		lazy = false,
 	},
 })
 
+-- Global diagnostic overrides
 vim.diagnostic.config({
 	virtual_text = true,
 	virtual_lines = { current_line = true },

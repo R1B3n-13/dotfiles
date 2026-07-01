@@ -36,7 +36,7 @@ return {
 			keep = function(notif)
 				return vim.fn.getcmdtype() ~= ""
 			end,
-			style = "comapact", -- "compact" | "fancy" | "minimal"
+			style = "compact", -- "compact" | "fancy" | "minimal"
 			top_down = true, -- place notifications from top to bottom
 			date_format = "%R", -- time format for notifications
 			more_format = " ↓ %d lines ",
