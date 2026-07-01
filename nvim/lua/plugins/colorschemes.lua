@@ -1,6 +1,7 @@
 return {
 	{
 		"folke/tokyonight.nvim",
+		lazy = true,
 		priority = 1000,
 		config = function()
 			require("tokyonight").setup({
@@ -20,6 +21,7 @@ return {
 		"catppuccin/nvim",
 		name = "catppuccin",
 		priority = 1000,
+		lazy = true,
 		config = function()
 			require("catppuccin").setup({
 				flavor = "auto",
@@ -58,15 +60,12 @@ return {
 					}
 				end,
 			})
-
-			-- Initialize theme switcher
-			local theme_switcher = require("utils.theme-switcher")
-			theme_switcher.setup()
 		end,
 	},
 	{
 		"rose-pine/neovim",
 		name = "rose-pine",
+		lazy = false,
 		priority = 1000,
 		config = function()
 			require("rose-pine").setup({
@@ -77,16 +76,21 @@ return {
 					italic = true,
 				},
 			})
+
+			-- Initialize theme switcher
+			local theme_switcher = require("utils.theme-switcher")
+			theme_switcher.setup()
 		end,
 	},
 	{
 		"bluz71/vim-moonfly-colors",
 		name = "moonfly",
-		lazy = false,
+		lazy = true,
 		priority = 1000,
 	},
 	{
 		"Verf/deepwhite.nvim",
+		lazy = true,
 		priority = 1000,
 		config = function()
 			require("deepwhite").setup({
