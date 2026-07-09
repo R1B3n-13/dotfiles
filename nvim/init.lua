@@ -1,8 +1,3 @@
--- Enable the experimental 0.12 UI layer
-pcall(function()
-	require("vim._core.ui2").enable()
-end)
-
 -- Load modular configurations
 require("configs.options")
 require("configs.keymaps")

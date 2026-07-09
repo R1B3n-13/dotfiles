@@ -3,6 +3,7 @@ return {
 	event = "VeryLazy",
 	config = function()
 		require("lualine").setup({
+			{ extensions = { require("neominimap.statusline").lualine_default } },
 			options = {
 				theme = "auto",
 				component_separators = "",
@@ -14,6 +15,13 @@ return {
 				},
 				lualine_c = {
 					{ "filename", icon = "", file_status = true, path = 1, padding = { left = 2, right = 2 } },
+				},
+				lualine_x = {
+					{
+						require("noice").api.statusline.mode.get,
+						cond = require("noice").api.statusline.mode.has,
+						color = { fg = "#dd9e64" },
+					},
 				},
 				lualine_y = {
 					{ "progress", icon = "", padding = { left = 1, right = 1 } },
