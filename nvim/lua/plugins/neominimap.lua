@@ -40,7 +40,10 @@ return {
 		---@type Neominimap.UserConfig
 		vim.g.neominimap = {
 			auto_enable = true,
+			layout = "float",
 			float = {
+				minimap_width = 16,
+				direction = "right",
 				window_border = "none",
 			},
 			click = {
