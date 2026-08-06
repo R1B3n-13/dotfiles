@@ -37,10 +37,14 @@ return {
 		vim.opt.wrap = false
 		vim.opt.sidescrolloff = 36
 
-		---@type Neominimap.UserConfig
 		vim.g.neominimap = {
 			auto_enable = true,
 			layout = "float",
+			exclude_filetypes = {
+				"help",
+				"bigfile", -- For Snacks.nvim
+				"markdown",
+			},
 			float = {
 				minimap_width = 16,
 				direction = "right",
