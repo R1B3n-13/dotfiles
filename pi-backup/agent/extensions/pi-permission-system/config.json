@@ -1,0 +1,36 @@
+{
+  "permission": {
+    "*": "allow",
+    "path": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      "*.env.example": "allow",
+      "~/.ssh/*": "deny",
+      "~/.aws/*": "deny",
+      "**/*.pem": "deny",
+      "**/id_rsa*": "deny",
+      "**/id_ed25519*": "deny"
+    },
+    "bash": {
+      "*": "allow",
+      "rm -rf *": "deny",
+      "sudo *": "ask",
+      "mkfs*": "deny",
+      "dd if=*": "ask",
+      "chmod 777 *": "ask",
+      "chmod -R 777 *": "ask",
+      "chown *root*": "ask",
+      "curl*|*sh*": "ask",
+      "wget*|*sh*": "ask",
+      "shutdown*": "deny",
+      "reboot*": "deny",
+      "init 0*": "deny",
+      "kill -9 1": "deny",
+      "killall*": "ask",
+      "* > /dev/sd*": "deny",
+      ":(){ :|:& };:": "deny"
+    },
+    "external_directory": "ask"
+  }
+}

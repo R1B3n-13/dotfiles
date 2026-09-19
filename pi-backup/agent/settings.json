@@ -1,0 +1,21 @@
+{
+  "theme": "noctalia",
+  "lastChangelogVersion": "0.85.1",
+  "defaultProvider": "commandcode",
+  "defaultModel": "meituan/LongCat-2.0:free",
+  "packages": [
+    "npm:pi-commandcode-provider",
+    "npm:pi-caveman",
+    "git:github.com/DietrichGebert/ponytail",
+    "npm:pi-blackhole",
+    "npm:pi-mcp-adapter",
+    "npm:pi-hashline-edit-pro",
+    "npm:better-pi-rewind",
+    "npm:pi-lsp-adapter",
+    "npm:pi-ast-grep",
+    "npm:pi-list-tools",
+    "npm:pi-smart-web-search",
+    "npm:pi-smart-fetch",
+    "npm:@gotgenes/pi-permission-system"
+  ]
+}
