@@ -11,6 +11,7 @@ mkdir -p "$DST"
 
 cp "$BAK/"*.json "$DST/" 2>/dev/null || true
 cp -r "$BAK/extensions" "$DST/extensions"
+cp -r "$BAK/pi-blackhole" "$DST/pi-blackhole" 2>/dev/null || true
 cp -r "$BAK/agents" "$DST/agents" 2>/dev/null || true
 cp -r "$BAK/skills" "$DST/skills" 2>/dev/null || true
 

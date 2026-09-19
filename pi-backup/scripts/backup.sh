@@ -19,6 +19,10 @@ cp "$SRC/settings.json" "$SRC/mcp.json" "$SRC/caveman.json" "$SRC/models-store.j
 cp -r "$SRC/extensions" "$DST/extensions"
 rm -rf "$DST/extensions/pi-permission-system/logs" 2>/dev/null || true
 
+# pi-blackhole: config only (the pending-*.json files are runtime state).
+mkdir -p "$DST/pi-blackhole"
+cp "$SRC/pi-blackhole/pi-blackhole-config.json" "$DST/pi-blackhole/" 2>/dev/null || true
+
 # Agents + skills.
 cp -r "$SRC/agents" "$DST/agents" 2>/dev/null || true
 cp -r "$SRC/skills" "$DST/skills" 2>/dev/null || true

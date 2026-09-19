@@ -1,0 +1,91 @@
+{
+  "_comment": "pi-blackhole config — auto mode, commandcode provider, muse-spark primary + deepseek fallback",
+  "_notes": [
+    "all models via commandcode — correlated failure risk if provider rate-limits",
+    "add openrouter/cerebras fallback when you have API keys for provider diversity",
+    "observer/reflector/dropper all use muse-spark-1.2-contributor (free, reasoning)",
+    "session model is last-resort fallback via sessionFallback: true"
+  ],
+
+  "compaction": "auto",
+  "compactionEngine": "blackhole",
+  "compactionSummaryMode": "default",
+  "tailBehavior": "minimal",
+  "midRunCompaction": "off",
+  "skipForProviders": [],
+  "retainedToolOutputMaxTokens": 20000,
+
+  "memory": true,
+  "sessionFallback": true,
+  "fullFoldAlways": true,
+
+  "model": {
+    "provider": "commandcode",
+    "id": "meta/muse-spark-1.2-contributor",
+    "thinking": "low",
+    "cooldownHours": 1
+  },
+
+  "observerModel": {
+    "provider": "commandcode",
+    "id": "meta/muse-spark-1.2-contributor",
+    "thinking": "low",
+    "cooldownHours": 1
+  },
+  "observerFallbackModels": [
+    {
+      "provider": "commandcode",
+      "id": "deepseek/deepseek-v4-flash",
+      "thinking": "low",
+      "cooldownHours": 1
+    }
+  ],
+
+  "reflectorModel": {
+    "provider": "commandcode",
+    "id": "meta/muse-spark-1.2-contributor",
+    "thinking": "low",
+    "cooldownHours": 1
+  },
+  "reflectorFallbackModels": [
+    {
+      "provider": "commandcode",
+      "id": "deepseek/deepseek-v4-flash",
+      "thinking": "low",
+      "cooldownHours": 1
+    }
+  ],
+
+  "dropperModel": {
+    "provider": "commandcode",
+    "id": "meta/muse-spark-1.2-contributor",
+    "thinking": "off",
+    "cooldownHours": 1
+  },
+  "dropperFallbackModels": [
+    {
+      "provider": "commandcode",
+      "id": "deepseek/deepseek-v4-flash",
+      "thinking": "low",
+      "cooldownHours": 1
+    }
+  ],
+
+  "observeAfterTokens": 15000,
+  "reflectAfterTokens": 25000,
+  "compactAfterPreset": "default",
+  "observationsPoolMaxTokens": 20000,
+  "observationsPoolTargetTokens": 10000,
+  "reflectionsPoolMaxTokens": 8000,
+  "reflectorInputMaxTokens": 80000,
+  "dropperInputMaxTokens": 80000,
+  "dropperPressureThreshold": 0.7,
+  "dropperPoolFullnessThreshold": 0.1,
+  "observerChunkMaxTokens": 40000,
+  "observerPreambleMaxTokens": 0,
+  "agentMaxTurns": 16,
+  "providerIdleTimeoutMs": 0,
+
+  "debug": false,
+  "debugLog": false
+}
