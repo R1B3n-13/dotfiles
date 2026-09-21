@@ -8,9 +8,9 @@ trusted). Children run `pi --mode rpc` — no tmux, no pty, no terminal emulatio
 
 | File | Role |
 |------|------|
-| `index.ts` | Entry. Registers `subagent`, `subagent_message`, `subagents_list`, unified `ask_user`, `/subagent-tree` command, message/entry renderers, and the N-box ribbon widget above the editor (one row set of side-by-side boxes, one per running subagent). Keys: Alt+H/L switch panes, Alt+E zooms the focused pane (full width, 3× rows), Alt+J/K scroll the focused pane's history, Alt+H/L reset scroll. Descendant boxes mirror worker-owned children read-only. Child role (env-gated): activity recorder, auto-exit, tool-allowlist interceptor. |
+| `index.ts` | Entry. Registers `subagent`, `subagent_message`, `subagents_list`, unified `ask_user`, `/subagent-tree` command, message/entry renderers, and the N-box ribbon widget above the editor (one row set of side-by-side boxes, one per running subagent). Keys: Alt+H/L move focus (border highlights the focused pane; viewport follows), Alt+E zooms the focused pane full-width with tall wrapped full-fidelity content, Alt+J/K scroll the focused pane's history. Descendant boxes mirror worker-owned children read-only. Child role (env-gated): activity recorder, auto-exit, tool-allowlist interceptor. |
 
-| `surface.ts` | RPC child process manager: spawn, steer/prompt, event stream → display buffer (tool calls with primary arg, `←`/`✗` result summaries, dim `┆` thinking lines), auto-cancel stray dialogs, kill. |
+| `surface.ts` | RPC child process manager: spawn, steer/prompt, dual display buffers (short summaries for 2-up; full-fidelity args/results/thinking for zoom), auto-cancel stray dialogs, kill. Children spawn with `PI_BLACKHOLE_PASSIVE=1` so pi-blackhole's observer/reflector/dropper and compaction override stay off in subagents (pi's native compaction remains). |
 | `session.ts` | Session JSONL parsing, last-assistant extraction, name registry, loadout snapshots, stats. |
 | `activity.ts` | Subagent-side activity recorder + parent-side validator (phase protocol). |
 | `status.ts` | Status classification (starting/active/waiting/stalled/recovered) + formatting. Optional config: `<project>/.pi/subagents.json` → `{"status":{"enabled":false},"ribbon":{"boxes":4,"lines":8}}`, or envs `PI_SUBAGENT_RIBBON_BOXES` / `PI_SUBAGENT_RIBBON_LINES`. |

@@ -18,6 +18,8 @@ export interface RpcChild {
 	proc: ChildProcess;
 	sessionFile: string;
 	/** Rolling display buffer (most recent last) assembled from RPC events. */
+	/** Full-fidelity buffer (untruncated args/results/thinking) for zoom mode. */
+	fullLines: string[];
 	lines: string[];
 	/** True while the child's agent loop is running (agent_start..agent_settled). */
 	busy: boolean;
@@ -56,6 +58,7 @@ export function spawnRpcChild(opts: SpawnRpcChildOptions): RpcChild {
 		proc: null as unknown as ChildProcess,
 		sessionFile: opts.sessionFile,
 		lines: [],
+		fullLines: [],
 		busy: false,
 		exited: false,
 		exitCode: null,
@@ -135,6 +138,9 @@ function handleChildLine(
 	if (child.lines.length > MAX_BUFFER_LINES) {
 		child.lines = child.lines.slice(-MAX_BUFFER_LINES);
 	}
+	if (child.fullLines.length > MAX_FULL_BUFFER_LINES) {
+		child.fullLines = child.fullLines.slice(-MAX_FULL_BUFFER_LINES);
+	}
 	onEvent?.(child, event);
 }
 
@@ -148,7 +154,7 @@ function rpcWrite(child: RpcChild, payload: Record<string, unknown>): void {
 }
 
 /** Update busy flag + display buffer from an RPC event. */
-function trackDisplayState(child: RpcChild, event: RpcChildEvent): void {
+export function trackDisplayState(child: RpcChild, event: RpcChildEvent): void {
 	switch (event.type) {
 		case "agent_start":
 			child.busy = true;
@@ -158,6 +164,7 @@ function trackDisplayState(child: RpcChild, event: RpcChildEvent): void {
 			return;
 		case "agent_end":
 			// agent_end can precede queued continuations; agent_settled marks idle.
+			flushThinking(child);
 			return;
 	}
 
@@ -177,25 +184,29 @@ function trackDisplayState(child: RpcChild, event: RpcChildEvent): void {
 
 	if (event.type === "tool_execution_start") {
 		const toolName = String(event.toolName ?? "");
-		const summary = summarizeToolArgs(toolName, event.args);
-		const rich = `→ ${toolName}${summary ? `: ${summary}` : ""}`;
+		const shortSummary = summarizeToolArgs(toolName, event.args, 60);
+		const fullSummary = summarizeToolArgs(toolName, event.args, 2000);
+		const shortRich = `→ ${toolName}${shortSummary ? `: ${shortSummary}` : ""}`;
+		const fullRich = `→ ${toolName}${fullSummary ? `: ${fullSummary}` : ""}`;
 		// Upgrade the bare `→ toolName` placeholder emitted at toolcall_start.
-		const last = child.lines[child.lines.length - 1];
-		if (last === `→ ${toolName}`) child.lines[child.lines.length - 1] = rich;
-		else pushLine(child, rich);
+		if (child.lines[child.lines.length - 1] === `→ ${toolName}`) child.lines[child.lines.length - 1] = shortRich;
+		else pushShort(child, shortRich);
+		if (child.fullLines[child.fullLines.length - 1] === `→ ${toolName}`) child.fullLines[child.fullLines.length - 1] = fullRich;
+		else pushFull(child, fullRich);
 		return;
 	}
 
 	if (event.type === "tool_execution_end") {
 		const toolName = String(event.toolName ?? "");
-		const isError = event.isError === true;
-		const text = summarizeToolResult(event.result);
-		if (text) pushLine(child, `${isError ? "✗" : "←"} ${toolName}: ${text}`);
+		const icon = event.isError === true ? "✗" : "←";
+		const short = summarizeToolResult(event.result);
+		if (short) pushShort(child, `${icon} ${toolName}: ${short}`);
+		const full = summarizeToolResultLines(event.result, RESULT_MAX_LINES);
+		if (full.length > 0) {
+			pushFull(child, `${icon} ${toolName}: ${full[0]}`);
+			for (let i = 1; i < full.length; i++) pushFull(child, `  ${full[i]}`);
+		}
 		return;
-	}
-
-	if (event.type === "agent_end") {
-		flushThinking(child);
 	}
 
 	if (event.type === "auto_retry_start") {
@@ -224,15 +235,15 @@ const TOOL_ARG_KEYS: Record<string, string[]> = {
 const THINKING_FLUSH_CHARS = 120;
 
 /** Short human summary of a tool call's primary argument. */
-export function summarizeToolArgs(toolName: string, args: unknown): string {
+export function summarizeToolArgs(toolName: string, args: unknown, maxLen = 60): string {
 	if (args === null || args === undefined || typeof args !== "object") return "";
 	const record = args as Record<string, unknown>;
+	const cap = (text: string): string => (text.length > maxLen ? `${text.slice(0, maxLen - 1)}…` : text);
 	const keys = TOOL_ARG_KEYS[toolName] ?? Object.keys(record);
 	for (const key of keys) {
 		const value = record[key];
 		if (typeof value === "string" && value.trim()) {
-			const firstLine = value.trim().split("\n")[0];
-			return firstLine.length > 60 ? `${firstLine.slice(0, 59)}…` : firstLine;
+			return cap(value.trim().split("\n")[0]);
 		}
 		if (Array.isArray(value) && value.length > 0 && typeof value[0] === "string") {
 			return value.length > 1 ? `${value[0]} (+${value.length - 1} more)` : value[0];
@@ -242,28 +253,37 @@ export function summarizeToolArgs(toolName: string, args: unknown): string {
 	for (const value of Object.values(record)) {
 		if (value === null || value === undefined) continue;
 		const text = typeof value === "string" ? value : JSON.stringify(value);
-		if (text && text !== "{}" && text !== "[]") {
-			return text.length > 60 ? `${text.slice(0, 59)}…` : text;
-		}
+		if (text && text !== "{}" && text !== "[]") return cap(text);
 	}
 	return "";
 }
 
 /** First meaningful text line of a tool result, truncated. */
 export function summarizeToolResult(result: unknown): string {
+	const lines = summarizeToolResultLines(result, 1, 80);
+	return lines[0] ?? "";
+}
+
+/** Result text lines (up to `maxLines`), with an ellipsis marker when cut. */
+export function summarizeToolResultLines(result: unknown, maxLines: number, maxLenPerLine = 400): string[] {
 	try {
 		const content = (result as { content?: Array<{ type?: string; text?: string }> })?.content;
-		if (!Array.isArray(content)) return "";
+		if (!Array.isArray(content)) return [];
+		const all: string[] = [];
 		for (const part of content) {
 			if (typeof part?.text === "string" && part.text.trim()) {
-				const firstLine = part.text.trim().split("\n")[0];
-				return firstLine.length > 80 ? `${firstLine.slice(0, 79)}…` : firstLine;
+				for (const line of part.text.trim().split("\n")) {
+					const t = line.replace(/\s+$/, "");
+					all.push(t.length > maxLenPerLine ? `${t.slice(0, maxLenPerLine - 1)}…` : t);
+				}
 			}
 		}
+		if (all.length <= maxLines) return all;
+		return [...all.slice(0, maxLines), `… (+${all.length - maxLines} more lines)`];
 	} catch {
 		// malformed result — skip
+		return [];
 	}
-	return "";
 }
 
 /** Accumulate thinking deltas; emit one dim line per newline or ~120 chars. */
@@ -295,34 +315,59 @@ function flushThinking(child: RpcChild): void {
 }
 
 const MAX_LINE_LENGTH = 200;
+const MAX_FULL_LINE_LENGTH = 4000;
+const MAX_FULL_BUFFER_LINES = 4000;
+const RESULT_MAX_LINES = 60;
 
-function pushLine(child: RpcChild, line: string): void {
-	const clean = line.replace(/\s+/g, " ").trim();
-	if (!clean) return;
-	child.lines.push(clean.length > MAX_LINE_LENGTH ? `${clean.slice(0, MAX_LINE_LENGTH - 1)}…` : clean);
+function capLine(line: string, cap: number): string {
+	return line.length > cap ? `${line.slice(0, cap - 1)}…` : line;
 }
 
-function appendStreamingText(child: RpcChild, delta: string): void {
+/** Push to the short summary buffer only. */
+function pushShort(child: RpcChild, line: string): void {
+	const clean = line.replace(/\s+/g, " ").trim();
+	if (!clean) return;
+	child.lines.push(capLine(clean, MAX_LINE_LENGTH));
+}
+
+/** Push to the full-fidelity buffer only (preserves leading indent for result bodies). */
+function pushFull(child: RpcChild, line: string): void {
+	const clean = line.replace(/[ \t]+$/gm, "").trimEnd();
+	if (!clean.trim()) return;
+	child.fullLines.push(capLine(clean, MAX_FULL_LINE_LENGTH));
+}
+
+/** Push to both buffers (short is space-collapsed + capped at 200; full capped at 4000). */
+function pushLine(child: RpcChild, line: string): void {
+	pushShort(child, line);
+	pushFull(child, line);
+}
+
+/** Streaming-delta merge into one buffer (word content merges into the last line). */
+function appendStreamingInto(lines: string[], delta: string, cap: number): void {
 	const parts = delta.split("\n");
 	for (let i = 0; i < parts.length; i++) {
-		if (i > 0) pushLine(child, "​"); // line break marker (zero-width)
+		if (i > 0) lines.push("\u200b"); // line break marker (zero-width)
 		const piece = parts[i];
 		if (!piece) continue;
-		const last = child.lines[child.lines.length - 1];
+		const last = lines[lines.length - 1];
 		if (last !== undefined && !last.endsWith("…")) {
-			const merged = last + piece;
-			child.lines[child.lines.length - 1] =
-				merged.length > MAX_LINE_LENGTH ? `${merged.slice(0, MAX_LINE_LENGTH - 1)}…` : merged;
+			lines[lines.length - 1] = capLine(last + piece, cap);
 		} else {
-			pushLine(child, piece);
+			lines.push(capLine(piece, cap));
 		}
 	}
 	// Trim consecutive zero-width marker lines produced by blank deltas.
-	while (child.lines.length > 1 && child.lines[child.lines.length - 1] === "​" &&
-		child.lines[child.lines.length - 2] === "​") {
-		child.lines.pop();
+	while (lines.length > 1 && lines[lines.length - 1] === "\u200b" && lines[lines.length - 2] === "\u200b") {
+		lines.pop();
 	}
 }
+
+function appendStreamingText(child: RpcChild, delta: string): void {
+	appendStreamingInto(child.lines, delta, MAX_LINE_LENGTH);
+	appendStreamingInto(child.fullLines, delta, MAX_FULL_LINE_LENGTH);
+}
+
 
 /**
  * Send an RPC command and wait for its acknowledgement.

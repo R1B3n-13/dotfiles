@@ -607,6 +607,9 @@ async function launchSubagent(
 	if (toolAllowlist) env.PI_SUBAGENT_TOOL_ALLOWLIST = toolAllowlist;
 	// Permission-ask forwarding: name the root (human-attended) session.
 	env.PI_SUBAGENT_PARENT_SESSION = rootParentSessionId(ctx);
+	// Subagents are short-lived; skip blackhole's observer/reflector/dropper and
+	// its compaction override. Pi's native compaction stays active as the safety net.
+	env.PI_BLACKHOLE_PASSIVE = "1";
 
 	writeSubagentLoadout(subagentSessionFile, {
 		agent: params.agent ?? null,
@@ -793,12 +796,16 @@ function finishRunningSubagent(running: RunningSubagent): void {
 const ACCENT = "\x1b[38;2;77;163;255m";
 const RST = "\x1b[0m";
 const RIBBON_CONTENT_LINES = loadExtensionConfig().ribbonLines;
-/** Zoom mode: focused pane takes the full width with 3× rows. */
+/** Zoom mode: focused pane takes the full width with extra rows. */
 let ribbonZoom = false;
+/** Focused pane index (into the full entry list). */
+let ribbonFocus = 0;
 /** Lines scrolled back from the tail inside the focused pane. */
 let paneScroll = 0;
 
-function borderTop(title: string, info: string, width: number): string {
+const DIM = "\x1b[90m";
+
+function borderTop(title: string, info: string, width: number, focused: boolean): string {
 	if (width <= 2) return "";
 	const inner = Math.max(0, width - 2);
 	const titlePart = `─ ${title} `;
@@ -806,13 +813,15 @@ function borderTop(title: string, info: string, width: number): string {
 	const fillLen = Math.max(0, inner - titlePart.length - infoPart.length);
 	const fill = "─".repeat(fillLen);
 	const content = `${titlePart}${fill}${infoPart}`.slice(0, inner).padEnd(inner, "─");
-	return `${ACCENT}╭${content}╮${RST}`;
+	const color = focused ? ACCENT : DIM;
+	return `${color}╭${content}╮${RST}`;
 }
 
-function borderBottom(width: number): string {
+function borderBottom(width: number, focused: boolean): string {
 	if (width <= 2) return "";
 	const inner = Math.max(0, width - 2);
-	return `${ACCENT}╰${"─".repeat(inner)}╯${RST}`;
+	const color = focused ? ACCENT : DIM;
+	return `${color}╰${"─".repeat(inner)}╯${RST}`;
 }
 
 function boxLine(left: string, width: number): string {
@@ -849,17 +858,44 @@ interface RibbonEntry {
 	agent?: string;
 	startTime: number;
 	statusText: string;
+	/** Short lines (summaries) shown in the 2-up view. */
 	lines: string[];
+	/** Full-fidelity lines (untruncated args/results/thinking) shown zoomed. */
+	fullLines?: string[];
 }
 
 export interface RibbonRenderOptions {
 	/** Content rows per (unzoomed) box. Default: configured ribbonLines. */
 	contentLines?: number;
-	/** Zoom: show only the focused pane, full width, 3× rows. */
+	/** Zoom: show only the focused pane, full width, extra rows. */
 	zoom?: boolean;
+	/** Focused pane index (into `entries`). */
+	focus?: number;
 	/** Lines scrolled back from the tail in the focused pane. */	scroll?: number;
 	/** Theme for dim styling of thinking lines (`┆ ` prefix). */
 	theme?: unknown;
+}
+
+/** Word-wrap a line into display segments of ~`cols` visible characters. */
+function wrapLine(text: string, cols: number): string[] {
+	if (text.length === 0) return [""];
+	const out: string[] = [];
+	let rest = text;
+	while (rest.length > cols) {
+		let cut = rest.lastIndexOf(" ", cols);
+		if (cut < Math.floor(cols * 0.5)) cut = cols;
+		out.push(rest.slice(0, cut));
+		rest = rest.slice(cut).replace(/^ +/, "");
+	}
+	out.push(rest);
+	return out;
+}
+
+/** Estimated content rows for zoom mode (~half the terminal, clamped). */
+function zoomRowCount(baseRows: number): number {
+	const h = process.stdout?.rows ?? 0;
+	if (!Number.isFinite(h) || h <= 0) return baseRows * 3;
+	return Math.max(baseRows, Math.min(40, Math.floor(h / 2) - 4));
 }
 
 /** N side-by-side boxes above the editor, joined into one row set. */
@@ -870,47 +906,74 @@ export function renderRibbonLines(entries: RibbonEntry[], width: number, opts: R
 	const scroll = Math.max(0, Math.floor(opts.scroll ?? 0));
 	const baseRows = Math.max(1, opts.contentLines ?? RIBBON_CONTENT_LINES);
 	const n = zoom ? 1 : Math.min(RIBBON_BOXES, total);
-	ribbonOffset = Math.max(0, Math.min(ribbonOffset, total - n));
+
+	// Focus drives the viewport: the window slides to keep the focused pane visible.
+	const focus = Math.max(0, Math.min(Math.floor(opts.focus ?? 0), total - 1));
+	let offset = Math.min(ribbonOffset, Math.max(0, total - n));
+	if (focus < offset) offset = focus;
+	if (focus >= offset + n) offset = focus - n + 1;
+	ribbonOffset = Math.max(0, Math.min(offset, Math.max(0, total - n)));
 	const visible = entries.slice(ribbonOffset, ribbonOffset + n);
 
 	const boxWidth = Math.max(12, Math.floor((width - (n - 1)) / n) - 1);
-	const rows = zoom ? baseRows * 3 : baseRows;
+	const rows = zoom ? zoomRowCount(baseRows) : baseRows;
 	const lines: string[] = [];
 
-	// One header row: ╭ name ─ status ─╮ for each visible box, joined.
 	const dim = typeof (opts.theme as any | undefined)?.fg === "function" ? (opts.theme as any) : null;
 	const styleLine = (text: string) => (text.startsWith("┆ ") && dim ? dim.fg("dim", text) : text);
-	const tops = visible.map((entry) => {
+	const tops = visible.map((entry, i) => {
 		const elapsed = formatElapsedShort(Math.floor((Date.now() - entry.startTime) / 1000));
+		const isFocus = ribbonOffset + i === focus;
 		const zoomTag = zoom ? " (zoom — Alt+E to restore)" : "";
 		return borderTop(
 			`${entry.name}${entry.agent ? ` (${entry.agent})` : ""}${zoomTag}`,
 			`${entry.statusText} ${elapsed}`,
 			boxWidth,
+			isFocus,
 		);
 	});
 	lines.push(tops.join(" "));
 
-	// Content rows: tail of each box's buffer, side by side; paneScroll shifts
-	// the window back from the tail (per pane, clamped to its buffer length).
-	for (let row = 0; row < rows; row++) {
-		const cells = visible.map((entry) => {
-			const maxScroll = Math.max(0, entry.lines.length - rows);
+	// Content rows: tail of each box's buffer, side by side. Zoom renders the
+	// full-fidelity buffer word-wrapped; the 2-up view shows short summaries.
+	const cellsFor = (entry: RibbonEntry, row: number): string => {
+		const source = zoom ? entry.fullLines ?? entry.lines : entry.lines;
+		if (zoom) {
+			// Walk the full buffer from the tail, wrapping lines, until `rows`
+			// display rows (offset by the scroll) are covered.
+			const maxScroll = Math.max(0, source.length - 1);
 			const back = Math.min(scroll, maxScroll);
-			const from = Math.max(0, entry.lines.length - rows - back);
-			const window = entry.lines.slice(from, from + rows);
-			let text = window[row] ?? "";
+			let needed = rows;
+			const display: string[] = [];
+			for (let i = source.length - 1 - back; i >= 0 && display.length < needed; i--) {
+				const segs = wrapLine(source[i] ?? "", Math.max(10, boxWidth - 4));
+				for (let s = segs.length - 1; s >= 0 && display.length < needed; s--) {
+					display.unshift(s === 0 ? segs[s] : `  ${segs[s]}`);
+				}
+			}
+			let text = display[Math.min(row, display.length - 1)] ?? "";
 			if (row === 0 && text === "") text = entry.statusText;
 			return boxLine(` ${styleLine(text)}`, boxWidth);
-		});
-		lines.push(cells.join(" "));
+		}
+		const maxScroll = Math.max(0, entry.lines.length - rows);
+		const back = Math.min(scroll, maxScroll);
+		const from = Math.max(0, entry.lines.length - rows - back);
+		const window = entry.lines.slice(from, from + rows);
+		let text = window[row] ?? "";
+		if (row === 0 && text === "") text = entry.statusText;
+		return boxLine(` ${styleLine(text)}`, boxWidth);
+	};
+	for (let row = 0; row < rows; row++) {
+		lines.push(visible.map((entry) => cellsFor(entry, row)).join(" "));
 	}
 
-	const bottoms = visible.map(() => borderBottom(boxWidth));
+	const bottoms = visible.map((_, i) => borderBottom(boxWidth, ribbonOffset + i === focus));
 	lines.push(bottoms.join(" "));
 
 	const hints: string[] = [];
-	if (total > n) hints.push(`${ribbonOffset + 1}-${ribbonOffset + n} of ${total} — Alt+H/L panes`);
+	const focusedName = entries[focus]?.name ?? "";
+	hints.push(`focus: ${focusedName} — Alt+H/L move`);
+	if (total > n) hints.push(`${ribbonOffset + 1}-${ribbonOffset + n} of ${total}`);
 	if (zoom) hints.push("Alt+E restore");
 	else hints.push("Alt+E zoom");
 	if (scroll > 0) hints.push("Alt+J to bottom");
@@ -1000,6 +1063,7 @@ function buildRibbonEntries(): RibbonEntry[] {
 			startTime: running.startTime,
 			statusText: formatWidgetRightLabel(snapshot).trim(),
 			lines: running.child.lines,
+			fullLines: running.child.fullLines,
 		};
 	});
 	for (const parent of direct) {
@@ -1027,7 +1091,12 @@ function updateWidget(): void {
 		(tui: any, theme: any) => ({
 			invalidate() {},
 			render(width: number) {
-				return renderRibbonLines(buildRibbonEntries(), width, { zoom: ribbonZoom, scroll: paneScroll, theme });
+				return renderRibbonLines(buildRibbonEntries(), width, {
+					zoom: ribbonZoom,
+					focus: ribbonFocus,
+					scroll: paneScroll,
+					theme,
+				});
 			},
 		}),
 		{ placement: "aboveEditor" },
@@ -1292,20 +1361,40 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 
 	// Ribbon viewport navigation (no-ops while the ribbon is hidden or empty).
 	pi.registerShortcut("alt+h", {
-		description: "Subagent ribbon: previous pane",
+		description: "Subagent ribbon: focus previous pane",
 		handler: () => {
-			ribbonOffset = Math.max(0, ribbonOffset - 1);
+			ribbonFocus = Math.max(0, ribbonFocus - 1);
 			paneScroll = 0;
 			updateWidget();
 		},
 	});
 	pi.registerShortcut("alt+l", {
-		description: "Subagent ribbon: next pane",
+		description: "Subagent ribbon: focus next pane",
 		handler: () => {
-			const total = runningSubagents.size;
-			const n = ribbonZoom ? 1 : Math.min(RIBBON_BOXES, Math.max(1, total));
-			ribbonOffset = Math.min(Math.max(0, total - n), ribbonOffset + 1);
+			ribbonFocus = Math.max(0, Math.min(buildRibbonEntries().length - 1, ribbonFocus + 1));
 			paneScroll = 0;
+			updateWidget();
+		},
+	});
+	pi.registerShortcut("alt+e", {
+		description: "Subagent ribbon: zoom focused pane (toggle)",
+		handler: () => {
+			ribbonZoom = !ribbonZoom;
+			paneScroll = 0;
+			updateWidget();
+		},
+	});
+	pi.registerShortcut("alt+k", {
+		description: "Subagent ribbon: scroll focused pane up in history",
+		handler: () => {
+			paneScroll = Math.min(paneScroll + 6, 400);
+			updateWidget();
+		},
+	});
+	pi.registerShortcut("alt+j", {
+		description: "Subagent ribbon: scroll focused pane down in history",
+		handler: () => {
+			paneScroll = Math.max(0, paneScroll - 6);
 			updateWidget();
 		},
 	});
@@ -1776,6 +1865,7 @@ function registerSubagentMessageTool(pi: ExtensionAPI) {
 			env.PI_SUBAGENT_AUTO_EXIT = "1"; // resumes are always autonomous
 			if (loadout.toolAllowlist) env.PI_SUBAGENT_TOOL_ALLOWLIST = loadout.toolAllowlist;
 			env.PI_SUBAGENT_PARENT_SESSION = rootParentSessionId(ctx);
+			env.PI_BLACKHOLE_PASSIVE = "1";
 
 			const child = spawnRpcChild({
 				id,
