@@ -824,12 +824,12 @@ function borderBottom(width: number, focused: boolean): string {
 	return `${color}╰${"─".repeat(inner)}╯${RST}`;
 }
 
-function boxLine(left: string, width: number): string {
+function boxLine(left: string, width: number, color: string = ACCENT): string {
 	if (width <= 2) return "";
 	const contentWidth = Math.max(0, width - 2);
 	const truncLeft = truncateToWidth(left, contentWidth);
 	const pad = Math.max(0, contentWidth - visibleWidth(truncLeft));
-	return `${ACCENT}│${RST}${truncLeft}${" ".repeat(pad)}${ACCENT}│${RST}`;
+	return `${color}│${RST}${truncLeft}${" ".repeat(pad)}${color}│${RST}`;
 }
 
 function formatWidgetRightLabel(snapshot: ReturnType<typeof classifyStatus>): string {
@@ -936,7 +936,7 @@ export function renderRibbonLines(entries: RibbonEntry[], width: number, opts: R
 
 	// Content rows: tail of each box's buffer, side by side. Zoom renders the
 	// full-fidelity buffer word-wrapped; the 2-up view shows short summaries.
-	const cellsFor = (entry: RibbonEntry, row: number): string => {
+	const cellsFor = (entry: RibbonEntry, row: number, paneColor: string): string => {
 		const source = zoom ? entry.fullLines ?? entry.lines : entry.lines;
 		if (zoom) {
 			// Walk the full buffer from the tail, wrapping lines, until `rows`
@@ -953,7 +953,7 @@ export function renderRibbonLines(entries: RibbonEntry[], width: number, opts: R
 			}
 			let text = display[Math.min(row, display.length - 1)] ?? "";
 			if (row === 0 && text === "") text = entry.statusText;
-			return boxLine(` ${styleLine(text)}`, boxWidth);
+			return boxLine(` ${styleLine(text)}`, boxWidth, paneColor);
 		}
 		const maxScroll = Math.max(0, entry.lines.length - rows);
 		const back = Math.min(scroll, maxScroll);
@@ -961,10 +961,14 @@ export function renderRibbonLines(entries: RibbonEntry[], width: number, opts: R
 		const window = entry.lines.slice(from, from + rows);
 		let text = window[row] ?? "";
 		if (row === 0 && text === "") text = entry.statusText;
-		return boxLine(` ${styleLine(text)}`, boxWidth);
+		return boxLine(` ${styleLine(text)}`, boxWidth, paneColor);
 	};
 	for (let row = 0; row < rows; row++) {
-		lines.push(visible.map((entry) => cellsFor(entry, row)).join(" "));
+		lines.push(
+			visible
+				.map((entry, i) => cellsFor(entry, row, ribbonOffset + i === focus ? ACCENT : DIM))
+				.join(" "),
+		);
 	}
 
 	const bottoms = visible.map((_, i) => borderBottom(boxWidth, ribbonOffset + i === focus));

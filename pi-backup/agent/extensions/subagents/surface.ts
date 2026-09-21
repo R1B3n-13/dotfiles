@@ -29,6 +29,8 @@ export interface RpcChild {
 	lastError: string | null;
 	/** Un-flushed thinking text (flushed per line / at ~120 chars). */
 	thinkingBuf?: string;
+	/** True while the last full-buffer line is an open thinking line. */
+	fullThinkingOpen?: boolean;
 }
 
 interface SpawnRpcChildOptions {
@@ -286,20 +288,23 @@ export function summarizeToolResultLines(result: unknown, maxLines: number, maxL
 	}
 }
 
-/** Accumulate thinking deltas; emit one dim line per newline or ~120 chars. */
+/** Accumulate thinking deltas.
+ * Short buffer: chunked at ~120 chars (flood control for the 6-line pane).
+ * Full buffer: merged until newline — full sentences, no mid-thought cuts. */
 function appendThinking(child: RpcChild, delta: string): void {
 	child.thinkingBuf = (child.thinkingBuf ?? "") + delta;
+	appendFullThinking(child, delta);
 	for (;;) {
 		const nl = child.thinkingBuf.indexOf("\n");
 		if (nl !== -1) {
 			const piece = child.thinkingBuf.slice(0, nl);
 			child.thinkingBuf = child.thinkingBuf.slice(nl + 1);
 			const clean = piece.trim();
-			if (clean) pushLine(child, `┆ ${clean}`);
+			if (clean) pushShort(child, `┆ ${clean}`);
 			continue;
 		}
 		if (child.thinkingBuf.length >= THINKING_FLUSH_CHARS) {
-			pushLine(child, `┆ ${child.thinkingBuf.slice(0, THINKING_FLUSH_CHARS).trim()}`);
+			pushShort(child, `┆ ${child.thinkingBuf.slice(0, THINKING_FLUSH_CHARS).trim()}`);
 			child.thinkingBuf = child.thinkingBuf.slice(THINKING_FLUSH_CHARS);
 			continue;
 		}
@@ -307,10 +312,30 @@ function appendThinking(child: RpcChild, delta: string): void {
 	}
 }
 
+/** Merge thinking into the full buffer: one growing `┆` line per thought block,
+ * broken at newlines (so a new thought never glues onto the previous line). */
+function appendFullThinking(child: RpcChild, delta: string): void {
+	if (!delta) return;
+	const parts = delta.split("\n");
+	for (let i = 0; i < parts.length; i++) {
+		const seg = parts[i];
+		if (seg) {
+			const last = child.fullLines[child.fullLines.length - 1];
+			if (child.fullThinkingOpen === true && i === 0 && last !== undefined && last.startsWith("┆ ")) {
+				child.fullLines[child.fullLines.length - 1] = capLine(last + seg, MAX_FULL_LINE_LENGTH);
+			} else {
+				child.fullLines.push(capLine(`┆ ${seg}`, MAX_FULL_LINE_LENGTH));
+			}
+			child.fullThinkingOpen = true;
+		}
+		if (i < parts.length - 1) child.fullThinkingOpen = false;
+	}
+}
+
 /** Emit any buffered thinking text as a final dim line. */
 function flushThinking(child: RpcChild): void {
 	const remaining = (child.thinkingBuf ?? "").trim();
-	if (remaining) pushLine(child, `┆ ${remaining}`);
+	if (remaining) pushShort(child, `┆ ${remaining}`);
 	child.thinkingBuf = "";
 }
 
