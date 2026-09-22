@@ -21,12 +21,12 @@ This repository is the whole setup, minus secrets and anything regenerable.
         fire-and-forget  │  spawn: pi --mode rpc (headless, JSONL)
         ┌────────────────┼────────────────┐
         ▼                ▼                ▼
-   ┌─────────┐      ┌─────────┐      ┌─────────┐
+   ┌─────────┐      ┌─────────┐      ┌──────────┐
    │  scout  │      │ worker  │      │researcher│   each in its own isolated
-   │ (recon, │      │ (edits, │      │  (web)  │   context + own session file
-   │ read-   │      │ tests,  │      │         │
-   │  only)  │      │ builds) │      │         │
-   └────┬────┘      └────┬────┘      └────┬────┘
+   │ (recon, │      │ (edits, │      │  (web)   │   context + own session file
+   │ read-   │      │ tests,  │      │          │
+   │  only)  │      │ builds) │      │          │
+   └────┬────┘      └────┬────┘      └────┬─────┘
         │                │ can spawn its  │
         │                │ own scouts     │
         ▼                ▼                ▼
@@ -47,20 +47,22 @@ The orchestrator dispatches them fire-and-forget and ends its turn. When a subag
 
 ```
 pi-backup/
-├── agent/                      ← the backed-up ~/.pi/agent directory
+├── agent/                                    ← the backed-up ~/.pi/agent directory
 │   ├── extensions/
-│   │   ├── subagents/          ← the orchestration extension (see below)
-│   │   │   └── tests/          ← deterministic selftest (no LLM tokens)
+│   │   ├── subagents/                        ← the orchestration extension (see below)
+│   │   │   └── tests/                        ← deterministic selftest
 │   │   └── pi-permission-system/
-│   │       └── config.json     ← the allow/ask/deny policy
-│   ├── agents/                 ← scout.md, worker.md, researcher.md
-│   ├── skills/                 ← ask-user decision-gate skill
-│   ├── orchestrator-workflow.md ← appended by /orchestrator mode
-│   ├── git/                    ← (manifest only) git-installed packages
-│   └── npm/package.json        ← npm package manifest (node_modules not stored)
+│   │       └── config.json                   ← the allow/ask/deny policy
+│   ├── agents/                               ← scout.md, worker.md, researcher.md
+│   ├── skills/                               ← ask-user decision-gate skill
+|   ├── pi-blackhole/pi-blackhole-config.json ← pi-blackhole extension config
+│   ├── orchestrator-workflow.md              ← appended by /orchestrator mode
+│   ├── GIT_PACKAGES.txt                      ← git package manifest
+│   └── npm/package.json                      ← npm package manifest
+|   └── caveman.json, mcp.json ... etc.       ← other congfigs
 └── scripts/
-    ├── backup.sh               ← refresh this repo's agent/ from ~/.pi/agent
-    └── install.sh              ← set up a new machine from this repo
+    ├── backup.sh                             ← refresh this repo's agent/ from ~/.pi/agent
+    └── install.sh                            ← set up a new machine from this repo
 ```
 
 `agent/` intentionally does **not** contain: `auth.json` (API keys — never leave your machine), `node_modules` (397 MB, rebuilt from the lockfile), `sessions/` (private transcripts), caches, or runtime logs.
@@ -123,20 +125,20 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 
 | Package | Role | Source |
 |---|---|---|
-| @earendil-works/pi-coding-agent | The agent runtime | [npm](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) |
+| @earendil-works/pi-coding-agent | The agent runtime | [github](https://github.com/earendil-works/pi), [npm](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) |
 | @gotgenes/pi-permission-system | Tool/bash/path allow-ask-deny policy, ask forwarding | [github](https://github.com/gotgenes/pi-packages) |
 | pi-blackhole | Observational memory + compaction for main sessions | [github](https://github.com/k0valik/pi-blackhole) |
 | pi-commandcode-provider | Model provider + auth (Command Code API) | [github](https://github.com/patlux/pi-commandcode-provider) |
 | pi-ask-user | Original of the vendored ask_user UI | [github](https://github.com/edlsh/pi-ask-user) |
 | pi-hashline-edit-pro | Hashline-anchored editing tools | [github](https://github.com/YuGiMob/pi-hashline-edit-pro) |
 | pi-lsp-adapter | LSP tools (definitions, refs, diagnostics) | [github](https://github.com/nikmmd/pi-lsp-adapter) |
-| pi-ast-grep | Structural code search | npm |
+| pi-ast-grep | Structural code search | [npm](https://www.npmjs.com/package/pi-ast-grep) |
 | pi-smart-web-search | Web search | [github](https://github.com/joematthews/pi-smart-web-search) |
 | pi-smart-fetch | Browser-fingerprinted URL fetching | [github](https://github.com/Thinkscape/agent-smart-fetch) |
 | pi-mcp-adapter | MCP server integration | [github](https://github.com/nicobailon/pi-mcp-adapter) |
 | pi-caveman | Personality/terse-output layer | [github](https://github.com/jonjonrankin/pi-caveman) |
 | pi-list-tools | Tool listing helper | [github](https://github.com/robobryce/pi-list-tools) |
-| better-pi-rewind | Session rewind | npm |
+| better-pi-rewind | Session rewind | [npm](https://www.npmjs.com/package/better-pi-rewind) |
 | ponytail | Minimal-solution discipline (skill) | [github](https://github.com/DietrichGebert/ponytail) |
 
 ---
