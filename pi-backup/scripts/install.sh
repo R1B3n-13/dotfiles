@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Restore a pi agent directory from this backup onto a new machine.
+# Install a pi agent setup from this backup onto a new machine.
 # Prereqs: pi installed. Steps: run this script, then re-add API keys (auth.json
 # is never backed up) via `pi /login` or by editing ~/.pi/agent/auth.json.
-# Usage: bash ~/pi-backup/scripts/restore.sh
+# Usage: bash ~/pi-backup/scripts/install.sh
 set -euo pipefail
 
 BAK="$(cd "$(dirname "$0")/.." && pwd)/agent"

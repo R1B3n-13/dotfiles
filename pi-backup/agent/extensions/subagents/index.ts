@@ -1431,6 +1431,60 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 	registerSubagentsListTool(pi);
 	registerAskUserTool(pi);
 	registerCommandAndRenderers(pi);
+	registerOrchestratorMode(pi);
+}
+
+// ── Orchestrator mode (opt-in workflow system prompt + footer status) ────────
+
+const WORKFLOW_PATH = join(getAgentConfigDir(), "orchestrator-workflow.md");
+let orchestratorMode = false;
+let orchestratorWorkflowText: string | null = null;
+
+function loadWorkflowText(): string {
+	if (orchestratorWorkflowText === null) {
+		try {
+			orchestratorWorkflowText = readFileSync(WORKFLOW_PATH, "utf8").trim();
+		} catch {
+			orchestratorWorkflowText = "";
+		}
+	}
+	return orchestratorWorkflowText;
+}
+
+/**
+ * /orchestrator toggles the orchestrator workflow as an appended system
+ * instruction for this session (footer shows the mode). Off by default.
+ * Workflow text: ~/.pi/agent/orchestrator-workflow.md.
+ */
+function registerOrchestratorMode(pi: ExtensionAPI): void {
+	if (IS_SUBAGENT_PROCESS) return; // child sessions never get this
+
+	pi.registerCommand("orchestrator", {
+		description: "Toggle orchestrator mode (workflow system prompt + footer status)",
+		handler: async (_args, ctx) => {
+			orchestratorMode = !orchestratorMode;
+			if (orchestratorMode) {
+				const text = loadWorkflowText();
+				if (!text) {
+					orchestratorMode = false;
+					ctx.ui.notify(`Workflow file not found: ${WORKFLOW_PATH}`, "error");
+					return;
+				}
+				ctx.ui.setStatus("mode", "orchestrator");
+				ctx.ui.notify("Orchestrator mode ON — workflow appended to system prompt", "info");
+			} else {
+				ctx.ui.setStatus("mode", undefined);
+				ctx.ui.notify("Orchestrator mode OFF", "info");
+			}
+		},
+	});
+
+	pi.on("before_agent_start", (event) => {
+		if (!orchestratorMode) return undefined;
+		const workflow = loadWorkflowText();
+		if (!workflow) return undefined;
+		return { systemPrompt: `${event.systemPrompt}\n\n${workflow}` };
+	});
 }
 
 // ── subagent tool ────────────────────────────────────────────────────────────

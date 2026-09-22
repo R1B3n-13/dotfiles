@@ -282,6 +282,30 @@
       "maxTokens": 65536
     },
     {
+      "id": "xiaomi/mimo-v2.6-pro",
+      "name": "MiMo V2.6 Pro (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
+      "contextWindow": 1048576,
+      "maxTokens": 65536
+    },
+    {
+      "id": "xiaomi/mimo-v2.6-pro-ultraspeed",
+      "name": "MiMo V2.6 Pro UltraSpeed (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
+      "contextWindow": 1048576,
+      "maxTokens": 65536
+    },
+    {
+      "id": "xiaomi/mimo-v2.6-flash",
+      "name": "MiMo V2.6 Flash (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
+      "contextWindow": 1048576,
+      "maxTokens": 65536
+    },
+    {
       "id": "xiaomi/mimo-v2.5-pro",
       "name": "MiMo V2.5 Pro (CC)",
       "api": "openai-completions",
@@ -383,6 +407,14 @@
       "api": "openai-completions",
       "reasoning": false,
       "contextWindow": 1048576,
+      "maxTokens": 65536
+    },
+    {
+      "id": "stepfun/Step-5-Preview",
+      "name": "Step 5 Preview (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
+      "contextWindow": 1000000,
       "maxTokens": 65536
     },
     {
@@ -566,6 +598,14 @@
       "name": "Grok 4.6 (CC)",
       "api": "openai-completions",
       "reasoning": true,
+      "contextWindow": 500000,
+      "maxTokens": 65536
+    },
+    {
+      "id": "xai/grok-4.7",
+      "name": "Grok 4.7 (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
       "contextWindow": 500000,
       "maxTokens": 65536
     }
