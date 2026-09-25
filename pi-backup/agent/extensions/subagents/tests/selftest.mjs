@@ -133,7 +133,40 @@ step("rpc child probe (framing + env + get_state, no model call)");
 	}
 }
 
-// ── 6. Optional live check (ONE cheap model call) ─────────────────────────────
+// ── 6. Permission-system contract (version + integration surface) ───────────
+step("permission-system contract");
+step("permission-system contract");
+let permInstalled = 0;
+let permContractOk = true;
+let permTested = 0;
+let permIdxSrc = "";
+{
+	try {
+		const pkg = JSON.parse(readFileSync(`${agentDir}/npm/node_modules/@gotgenes/pi-permission-system/package.json`, "utf8"));
+		permInstalled = Number.parseInt((pkg.version ?? "").split(".")[0] ?? "", 10);
+		pass(`installed: v${pkg.version}`);
+	} catch {
+		console.log("  (not installed — child permission asks fail closed; that is a valid configuration)");
+	}
+	if (permInstalled > 0) {
+		// Contract points our integration depends on: env var, inbox module, config paths.
+		const srcDir = `${agentDir}/npm/node_modules/@gotgenes/pi-permission-system`;
+		try {
+			permIdxSrc = readFileSync(`${EXT}/index.ts`, "utf8");
+			permTested = Number.parseInt((permIdxSrc.match(/PERMISSION_SYSTEM_TESTED_MAJOR = (\d+)/) ?? [])[1] ?? "", 10);
+			const forwarding = readFileSync(`${srcDir}/src/authority/permission-forwarding.ts`, "utf8");
+			const configPaths = readFileSync(`${srcDir}/src/config/config-paths.ts`, "utf8");
+			permContractOk = forwarding.includes("PI_SUBAGENT_PARENT_SESSION") && configPaths.includes('EXTENSION_ID = "pi-permission-system"');
+			permContractOk ? pass("integration surface intact (env var + config paths)") : fail("integration surface changed — diff permission-forwarding.ts / config-paths.ts before accepting this major");
+			permTested === permInstalled ? pass(`tested major matches (v${permTested})`) : console.log(`  ⚠ version drift: installed v${permInstalled} vs tested v${permTested}`);
+		} catch (e) {
+			permContractOk = false;
+			fail(`contract check failed: ${String(e).slice(0, 120)}`);
+		}
+	}
+}
+
+// ── 7. Optional live check (ONE cheap model call) ─────────────────────────────
 if (process.argv.includes("--live")) {
 	step("live spawn probe (--live: one scout, one model call)");
 	const jiti = createJiti(import.meta.url, {
@@ -182,6 +215,24 @@ if (process.argv.includes("--live")) {
 	}
 } else {
 	console.log("\n(live probe skipped — pass --live for one cheap model call)");
+}
+
+// Version-drift acceptance: only when everything else passed and the contract
+// surface is intact. This is the deliberate act that silences the runtime warning.
+const drift = permInstalled > 0 && permContractOk && permTested !== permInstalled;
+if (drift) {
+	if (process.argv.includes("--bump-permission") && failures === 0) {
+		const updated = permIdxSrc.replace(/PERMISSION_SYSTEM_TESTED_MAJOR = \d+/, `PERMISSION_SYSTEM_TESTED_MAJOR = ${permInstalled}`);
+		if (updated !== permIdxSrc) {
+			writeFileSync(`${EXT}/index.ts`, updated);
+			console.log(`\n✓ accepted permission-system v${permInstalled}: tested major v${permTested} → v${permInstalled}`);
+			console.log("SELFTEST: ALL PASS");
+			process.exit(0);
+		}
+	}
+	console.error(`\n⚠ permission-system v${permInstalled} not yet accepted (tested: v${permTested}).`);
+	console.error("  Review the contract (surface check passed above), then rerun with --bump-permission to accept.");
+	process.exit(1);
 }
 
 console.log(failures === 0 ? "\nSELFTEST: ALL PASS" : `\nSELFTEST: ${failures} FAILURE(S)`);

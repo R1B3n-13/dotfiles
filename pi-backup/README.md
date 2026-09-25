@@ -41,6 +41,51 @@ Three agent types exist:
 
 The orchestrator dispatches them fire-and-forget and ends its turn. When a subagent finishes, its final report is delivered back automatically as a steer message. The orchestrator never polls, never waits, and never sees the subagent's tool calls or thinking — only the distilled result.
 
+## How scout thinks — the routing ladder
+
+Scout is deliberately opinionated about *which tool answers which question*, because search cost and precision vary wildly:
+
+1. **Exploratory or intent-based questions** ("how does X work", "where is Y handled", unfamiliar territory) → **[semble](https://github.com/MinishLab/semble)** semantic search first. It embeds the codebase and finds by meaning, not keywords — cheaper than grepping blind, more precise than reading whole files.
+2. **A symbol is already named** (definition, callers, type, file outline) → **LSP** tools: precise, language-aware, no guessing.
+3. **The question is about code shape** ("every class extending Base", "empty catch blocks") → **ast-grep**: structural, exact where semble is fuzzy.
+4. **Every literal occurrence of an exact string** → **anchor_grep** — the last resort for search.
+5. **read / find / ls** — only to pull context a snippet didn't give, or locate files by name.
+
+The parent can also set a **thoroughness level** per dispatch: *quick* (first sufficient answer), *medium* (the main surface), *thorough* (every caller, every variant — completeness over brevity). And scout never edits anything: it has no write tools, so it can't break what it explores.
+
+## The orchestrator workflow
+
+Turn on `/orchestrator` and the session follows a fixed discipline instead of freelancing:
+
+```
+        ┌────────────────────────────────────────────────────┐
+        │  ORCHESTRATOR                                      │
+        │  0. triage — is dispatch even needed?              │
+        │  1. plan — what's known / unknown / ambiguous?     │
+        └───────┬────────────────────────────────────────────┘
+                │ dispatch (parallel when independent)
+                ▼
+        scout / researcher          ← discovery: map the unknowns
+                │ results arrive as steers
+                ▼
+        ┌────────────────────────────────────────────────────┐
+        │  ORCHESTRATOR — integrate findings, adjust plan    │
+        └───────┬────────────────────────────────────────────┘
+                │ finalized plan + concrete intent
+                ▼
+        worker                      ← implements, tests, may ask_user
+                │ result
+                ▼
+        ┌────────────────────────────────────────────────────┐
+        │  ORCHESTRATOR — reviews the diff, runs diagnostics │
+        └───────┬────────────────────────────────────────────┘
+                │ issues found? surgical fix dispatch
+                ▼
+        worker (max 2 fix cycles)   ← then surface to the human
+```
+
+The point is context economics: the orchestrator spends its own window only on planning, integration, and review — never on raw exploration or bulk edits. Ambiguity is resolved with the user *before* a dispatch, because an underspecified task that reaches a worker comes back as an expensive round trip.
+
 ---
 
 ## What's in this repo
@@ -87,7 +132,7 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 
 **Orchestrator mode.** `/orchestrator` toggles a workflow discipline (triage → plan → parallel discovery → implement → review → capped fix loop) into the system prompt, with a footer indicator. Off by default; normal sessions are unaffected.
 
-**Testing.** `agent/extensions/subagents/tests/selftest.mjs` verifies the whole extension deterministically — compile against the installed pi's type definitions, unit tests for every renderer and buffer, a real extension-load probe, and a real RPC round-trip — all without a single LLM token. Run it after every pi update. `--live` adds one cheap real-model spawn check.
+**Testing.** `agent/extensions/subagents/tests/selftest.mjs` verifies the whole extension deterministically — compile against the installed pi's type definitions, unit tests for every renderer and buffer, a real extension-load probe, an RPC round-trip, and the permission-system contract (installed major vs. tested major, plus the integration surface) — all without a single LLM token. Run it after every pi update. `--live` adds one cheap real-model spawn check.
 
 ---
 
@@ -98,6 +143,7 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 - **subagents → pi-blackhole**: children run with `PI_BLACKHOLE_PASSIVE=1`. Blackhole's observer/reflector/dropper machinery and its compaction override are tuned for long-running main sessions; a subagent does one task and exits, rarely touching a 1M-token window. Pi's native compaction remains active in children as a safety net. The orchestrator keeps full blackhole behavior.
 - **orchestrator mode → subagents**: the workflow text assumes the dispatch/result machinery exists; it's shipped and versioned alongside the extension.
 - **commandcode-provider**: the model/auth provider everything runs on. The agents' frontmatter pins models it serves.
+- **scout → semble**: scout's semantic search runs as an MCP server ([semble](https://github.com/MinishLab/semble), started on demand via `uvx` and configured in `agent/mcp.json` with `directTools`). It powers the routing ladder's first rung — meaning-based code search before any grep.
 
 ---
 
@@ -140,6 +186,7 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 | pi-list-tools | Tool listing helper | [github](https://github.com/robobryce/pi-list-tools) |
 | better-pi-rewind | Session rewind | [npm](https://www.npmjs.com/package/better-pi-rewind) |
 | ponytail | Minimal-solution discipline (skill) | [github](https://github.com/DietrichGebert/ponytail) |
+| [semble](https://github.com/MinishLab/semble) | Semantic code search engine (MCP server; scout's first-rung search). Requires `uv`/`uvx` on PATH. | [github](https://github.com/MinishLab/semble) |
 
 ---
 
@@ -165,3 +212,19 @@ node ~/.pi/agent/extensions/subagents/tests/selftest.mjs --live
 ```
 
 Zero-token checks run first (compile, load, RPC plumbing). If they pass, the extension is compatible; `--live` adds one real spawn as final proof. Only if something fails do you need to look closer — the failing step names the exact layer.
+
+### When the permission system was also updated
+
+If you upgraded `@gotgenes/pi-permission-system` and its major version differs from the one the extension was tested against, the selftest **fails on purpose** — a version-drift notice, plus a check that the integration surface (the env var, inbox, and config-path contract) is still intact in the installed package.
+
+- If the surface check passed, nothing else broke, and you're comfortable accepting the new major, rerun with:
+
+  ```bash
+  node ~/.pi/agent/extensions/subagents/tests/selftest.mjs --bump-permission
+  ```
+
+  This records the new tested major in the extension. The startup warning ("Permission popups for subagents may not appear…") disappears — it was only ever a reminder to run this exact acceptance flow.
+
+- If the surface check **failed**, don't bump. The upstream package restructured something our forwarding depends on — diff `src/authority/permission-forwarding.ts` and `src/config/config-paths.ts` against the previous version first, fix the extension, then bump.
+
+Until a drift is accepted, sessions show a visible warning so an unreviewed update can't silently affect subagent permission popups.
