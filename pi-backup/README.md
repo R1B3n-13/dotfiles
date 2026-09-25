@@ -138,11 +138,10 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 
 ## How the pieces depend on each other
 
-- **subagents ⇄ pi core**: spawns `pi --mode rpc` children; steers results back; uses pi's session files as the audit trail. Verified against each pi release by the selftest's compile + RPC probes.
+- **subagents → pi core**: spawns `pi --mode rpc` children; steers results back; uses pi's session files as the audit trail. Verified against each pi release by the selftest's compile + RPC probes.
 - **subagents → pi-permission-system**: children inherit the permission policy. `ask` decisions are forwarded from the headless child to the root session's inbox, where the human approves. The extension checks the installed major version at startup and warns visibly if the contract surface may have drifted.
 - **subagents → pi-blackhole**: children run with `PI_BLACKHOLE_PASSIVE=1`. Blackhole's observer/reflector/dropper machinery and its compaction override are tuned for long-running main sessions; a subagent does one task and exits, rarely touching a 1M-token window. Pi's native compaction remains active in children as a safety net. The orchestrator keeps full blackhole behavior.
 - **orchestrator mode → subagents**: the workflow text assumes the dispatch/result machinery exists; it's shipped and versioned alongside the extension.
-- **commandcode-provider**: the model/auth provider everything runs on. The agents' frontmatter pins models it serves.
 - **scout → semble**: scout's semantic search runs as an MCP server ([semble](https://github.com/MinishLab/semble), started on demand via `uvx` and configured in `agent/mcp.json` with `directTools`). It powers the routing ladder's first rung — meaning-based code search before any grep.
 
 ---
@@ -174,7 +173,6 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 | @earendil-works/pi-coding-agent | The agent runtime | [github](https://github.com/earendil-works/pi), [npm](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) |
 | @gotgenes/pi-permission-system | Tool/bash/path allow-ask-deny policy, ask forwarding | [github](https://github.com/gotgenes/pi-packages) |
 | pi-blackhole | Observational memory + compaction for main sessions | [github](https://github.com/k0valik/pi-blackhole) |
-| pi-commandcode-provider | Model provider + auth (Command Code API) | [github](https://github.com/patlux/pi-commandcode-provider) |
 | pi-ask-user | Original of the vendored ask_user UI | [github](https://github.com/edlsh/pi-ask-user) |
 | pi-hashline-edit-pro | Hashline-anchored editing tools | [github](https://github.com/YuGiMob/pi-hashline-edit-pro) |
 | pi-lsp-adapter | LSP tools (definitions, refs, diagnostics) | [github](https://github.com/nikmmd/pi-lsp-adapter) |
@@ -186,7 +184,7 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 | pi-list-tools | Tool listing helper | [github](https://github.com/robobryce/pi-list-tools) |
 | better-pi-rewind | Session rewind | [npm](https://www.npmjs.com/package/better-pi-rewind) |
 | ponytail | Minimal-solution discipline (skill) | [github](https://github.com/DietrichGebert/ponytail) |
-| [semble](https://github.com/MinishLab/semble) | Semantic code search engine (MCP server; scout's first-rung search). Requires `uv`/`uvx` on PATH. | [github](https://github.com/MinishLab/semble) |
+| semble | Semantic code search engine (MCP server; scout's first-rung search). Requires `uv`/`uvx` on PATH. | [github](https://github.com/MinishLab/semble) |
 
 ---
 
