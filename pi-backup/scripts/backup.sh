@@ -13,7 +13,7 @@ rm -rf "$DST"
 mkdir -p "$DST/npm"
 
 # Configs (no secrets — auth.json is the only secret and is NOT copied).
-cp "$SRC/settings.json" "$SRC/mcp.json" "$SRC/caveman.json" "$SRC/models-store.json" "$SRC/commandcode-models.json" "$DST/" 2>/dev/null || true
+cp "$SRC/settings.json" "$SRC/mcp-adapter.json" "$SRC/caveman.json" "$SRC/models-store.json" "$SRC/commandcode-models.json" "$DST/" 2>/dev/null || true
 
 # Extensions: code + policies, but not permission-system audit logs (runtime state).
 cp -r "$SRC/extensions" "$DST/extensions"

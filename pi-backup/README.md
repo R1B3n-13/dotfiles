@@ -12,7 +12,7 @@ This repository is the whole setup, minus secrets and anything regenerable.
 
 ```
                          you
-                          │  (normal pi session, or /orchestrator mode)
+                          │  (normal pi session, or /mode orchestrator)
                           ▼
               ┌───────────────────────┐
               │    ORCHESTRATOR       │   plans · dispatches · reviews
@@ -92,11 +92,9 @@ Turn on `/mode orchestrator` and the session follows a fixed discipline instead 
 
 The point is context economics: the orchestrator spends its own window only on planning, integration, and review — never on raw exploration or bulk edits. Ambiguity is resolved with the user *before* a dispatch, because an underspecified task that reaches a worker comes back as an expensive round trip.
 
----
-
 ### Plan mode
 
-`/mode plan` turns the session into a planning session: scout and researcher run the discovery in parallel (files, web), the orchestrator integrates and clarifies with the user, then drafts a reviewed spec. The adopted gstack review skills (`office-hours`, `plan-ceo-review`, `plan-eng-review`, `investigate`) are available as on-demand skill loads — no browsing, no writes; output is a spec, not code.
+`/mode plan` turns the session into a planning session: scout and researcher run the discovery in parallel (files, web), the orchestrator integrates and clarifies with the user, then drafts a reviewed spec. The adopted gstack review skills (`office-hours`, `plan-ceo-review`, `plan-eng-review`, `investigate`) are available as on-demand skill loads; the output is a spec, not code. When a plan genuinely needs a live page (JS-rendered docs, a visual reference), the orchestrator dispatches `browser-probe` with a narrowly-scoped read-only browse task — on explicit request, not by default.
 
 ### QA mode
 
@@ -105,10 +103,12 @@ The point is context economics: the orchestrator spends its own window only on p
 - **Code-only review (default)** — the `reviewer` subagent inspects the diff with read/lsp/grep/ast-grep tools and returns an APPROVE/FIX verdict. No browser, no writes, no screenshots.
 - **Live verification (on demand)** — the `browser-probe` subagent drives a real browser through `agent-browser`: assertions on text/selectors/console by default, screenshots only for visual steps or failure evidence (saved as file paths, not pasted into context).
 
-### The two review subagents (mode-agnostic)
+### Two mode-agnostic subagents: reviewer and browser-probe
 
-- **`reviewer`** — code-only static reviewer. Tools: `read`, `lsp_diagnostics`, `anchor_grep`, `ast_grep`, `bash` (for running tests). Strict verdict format (APPROVE/FIX with reasons). Short-lived by design.
-- **`browser-probe`** — live-environment probe. Tools: `agent_browser`, `agent_browser_qa`, `agent_browser_action`, `read`, `bash`. Assert-first browser QA; screenshots are file-first and only for visual steps or failure evidence.
+Neither subagent belongs to one mode — both are spawnable from any session, and each mode's workflow only says when to prefer them.
+
+- **`reviewer`** — code-only static reviewer. Tools: `read`, `lsp_diagnostics`, `anchor_grep`, `ast_grep`, `bash` (for running tests). Strict verdict format (APPROVE/FIX with reasons). QA mode's default review path; equally usable for a second opinion anywhere.
+- **`browser-probe`** — live-browser probe. Tools: `agent_browser`, `agent_browser_qa`, `agent_browser_action`, `read`, `bash`. Assert-first browser verification (text/selector/console); screenshots file-first and only for visual steps or failure evidence. QA mode's live-verification path; plan mode's on-demand live-page reader.
 
 ### Adopted skills + their helper CLIs
 
@@ -127,13 +127,14 @@ pi-backup/
 │   │   └── pi-permission-system/
 │   │       └── config.json                   ← the allow/ask/deny policy
 │   ├── agents/                               ← scout.md, worker.md, researcher.md, reviewer.md, browser-probe.md
-│   ├── skills/                               ← ask-user decision-gate skill
+│   ├── skills/                               ← ask-user skill + 7 adopted workflow skills + bin/ helper CLIs
 |   ├── pi-blackhole/pi-blackhole-config.json ← pi-blackhole extension config
 │   ├── orchestrator-workflow.md, plan-workflow.md,
 │   │   qa-workflow.md                        ← mode workflow files (appended by /mode)
 │   ├── GIT_PACKAGES.txt                      ← git package manifest
 │   └── npm/package.json                      ← npm package manifest
-|   └── caveman.json, mcp.json ... etc.       ← other congfigs
+│   ├── mcp-adapter.json, caveman.json,
+│   │   settings.json …                       ← other configs
 └── scripts/
     ├── backup.sh                             ← refresh this repo's agent/ from ~/.pi/agent
     └── install.sh                            ← set up a new machine from this repo
@@ -159,8 +160,6 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 
 **Traceability.** Every subagent writes a full session transcript (every tool call, every result, every thought) to disk, plus a loadout snapshot of how it was spawned. `/subagent-tree` prints the whole spawn tree — names, session file paths, costs — so any run can be audited months later.
 
-**Orchestrator mode.** `/orchestrator` toggles a workflow discipline (triage → plan → parallel discovery → implement → review → capped fix loop) into the system prompt, with a footer indicator. Off by default; normal sessions are unaffected.
-
 **Testing.** `agent/extensions/subagents/tests/selftest.mjs` verifies the whole extension deterministically — compile against the installed pi's type definitions, unit tests for every renderer and buffer, a real extension-load probe, an RPC round-trip, and the permission-system contract (installed major vs. tested major, plus the integration surface) — all without a single LLM token. Run it after every pi update. `--live` adds one cheap real-model spawn check. The browse stack (agent-browser CLI, Chromium, browser tool registration) is probed token-free too and reports as unwired rather than failing when absent.
 
 ---
@@ -170,8 +169,8 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 - **subagents → pi core**: spawns `pi --mode rpc` children; steers results back; uses pi's session files as the audit trail. Verified against each pi release by the selftest's compile + RPC probes.
 - **subagents → pi-permission-system**: children inherit the permission policy. `ask` decisions are forwarded from the headless child to the root session's inbox, where the human approves. The extension checks the installed major version at startup and warns visibly if the contract surface may have drifted.
 - **subagents → pi-blackhole**: children run with `PI_BLACKHOLE_PASSIVE=1`. Blackhole's observer/reflector/dropper machinery and its compaction override are tuned for long-running main sessions; a subagent does one task and exits, rarely touching a 1M-token window. Pi's native compaction remains active in children as a safety net. The orchestrator keeps full blackhole behavior.
-- **orchestrator mode → subagents**: the workflow text assumes the dispatch/result machinery exists; it's shipped and versioned alongside the extension.
-- **scout → semble**: scout's semantic search runs as an MCP server ([semble](https://github.com/MinishLab/semble), started on demand via `uvx` and configured in `agent/mcp.json` with `directTools`). It powers the routing ladder's first rung — meaning-based code search before any grep.
+- **workflow modes → subagents**: every mode's workflow text (orchestrator, plan, qa) assumes the dispatch/result machinery exists; the workflows are shipped and versioned alongside the extension.
+- **scout → semble**: scout's semantic search runs as an MCP server ([semble](https://github.com/MinishLab/semble), started on demand via `uvx`). The server entry lives in `agent/mcp-adapter.json` with `directTools: true`, so the search tools register directly in the tool list instead of behind the MCP gateway. It powers the routing ladder's first rung — meaning-based code search before any grep.
 
 ---
 
@@ -222,11 +221,38 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 
 ## Installing on a new machine
 
-1. Install pi and Node.js (≥ 22).
-2. Clone this repo anywhere: `git clone <this-repo> ~/pi-backup`
-3. Run `bash ~/pi-backup/scripts/install.sh` — it copies configs, extensions, agents, and skills into `~/.pi/agent`, runs `npm install` against the stored lockfile, and reinstalls the git packages.
-4. Add your API key: `pi /login` (or edit `~/.pi/agent/auth.json`). This file is deliberately not in the repo.
-5. Start `pi` anywhere. Spawn a scout from any session to confirm.
+1. **Install pi and Node.js ≥ 24.** The browser stack hard-requires Node 24 (`agent-browser` refuses to run on older releases); pi itself is happy with it. If you manage Node with nvm, note that login shells often keep the system Node — the browser step below assumes `node -v` prints 24.
+2. **Clone this repo:** `git clone <this-repo> ~/pi-backup`
+3. **Run the installer:** `bash ~/pi-backup/scripts/install.sh` — copies configs, extensions, agents, skills, and the workflow `.md` files into `~/.pi/agent`, runs `npm install` against the stored lockfile (restores `pi-agent-browser-native` and every other extension package), and reinstalls the git packages. On Node ≥ 24 it also installs the `agent-browser` CLI globally and fetches Chromium; on older Node it prints the exact commands to run after upgrading.
+4. **Add your API key:** `pi /login` (or edit `~/.pi/agent/auth.json`). This file is deliberately not in the repo.
+5. **Install semble (semantic code search):**
+
+   ```bash
+   # install uv (provides uvx, which launches the semble MCP server)
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   # install the semble CLI and confirm it is on PATH
+   uv tool install semble
+   semble --version
+   ```
+
+   No MCP configuration step is needed: the server entry already ships in `agent/mcp-adapter.json` (restored by the installer in step 3) with `directTools: true`, which registers `semble_search` / `semble_find_related` as direct tools in the agent's tool list instead of behind the MCP gateway. When you upgrade semble, bump the pinned version (`semble[mcp]==X.Y.Z`) in `agent/mcp-adapter.json` to match.
+
+6. **Verify the browser stack** (skip if you don't need live-page QA):
+
+   ```bash
+   agent-browser --version        # CLI on PATH (install.sh links it into ~/.local/bin on nvm setups)
+   agent-browser doctor           # Chrome for Testing installed, environment sane
+   ```
+
+   `pi-agent-browser-native` (restored by the lockfile in step 3) wraps this CLI and exposes the `agent_browser*` tools inside pi — no further configuration. If `doctor` reports a missing Chrome, run `agent-browser install`.
+
+7. **Smoke-test:** start `pi` anywhere, then run the zero-token selftest:
+
+   ```bash
+   node ~/.pi/agent/extensions/subagents/tests/selftest.mjs
+   ```
+
+   It compiles the extension against the installed pi, loads it, round-trips RPC, checks the permission-system contract, and probes the browse stack — all without a single model token. Then spawn a scout from any session to confirm dispatch works end to end.
 
 ## Backing up after changes
 
