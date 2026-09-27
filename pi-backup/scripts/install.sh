@@ -14,6 +14,7 @@ cp -r "$BAK/extensions" "$DST/extensions"
 cp -r "$BAK/pi-blackhole" "$DST/pi-blackhole" 2>/dev/null || true
 cp -r "$BAK/agents" "$DST/agents" 2>/dev/null || true
 cp -r "$BAK/skills" "$DST/skills" 2>/dev/null || true
+cp "$BAK/"*.md "$DST/" 2>/dev/null || true
 
 # Reinstall npm packages (permission system, adapters, providers...).
 if [ -f "$BAK/npm/package.json" ]; then
@@ -29,6 +30,20 @@ while read -r line; do
 		pi install "$url" || echo "WARN: failed to install $url — install manually"
 	fi
 done < "$BAK/GIT_PACKAGES.txt"
+
+# Browse stack (needs Node >= 24 — the agent-browser CLI hard-requires it).
+if command -v node >/dev/null 2>&1; then
+	NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
+	if [ "$NODE_MAJOR" -ge 24 ]; then
+		npm install -g agent-browser@0.38.1 || echo "WARN: agent-browser global install failed"
+		mkdir -p "$HOME/.local/bin"
+		ln -sf "$(npm root -g)/../bin/agent-browser" "$HOME/.local/bin/agent-browser" 2>/dev/null || true
+		command -v agent-browser >/dev/null 2>&1 && agent-browser install || echo "WARN: run 'agent-browser install' to fetch Chromium"
+	else
+		echo "SKIP browse: node v$NODE_MAJOR < 24. Upgrade node (e.g. nvm install 24), then run:"
+		echo "  npm i -g agent-browser@0.38.1 && agent-browser install"
+	fi
+fi
 
 echo "Restored to $DST"
 echo "REMEMBER: auth.json was NOT backed up. Add your API keys (pi /login or edit auth.json)."

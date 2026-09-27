@@ -27,6 +27,9 @@ cp "$SRC/pi-blackhole/pi-blackhole-config.json" "$DST/pi-blackhole/" 2>/dev/null
 cp -r "$SRC/agents" "$DST/agents" 2>/dev/null || true
 cp -r "$SRC/skills" "$DST/skills" 2>/dev/null || true
 
+# Mode workflow files (orchestrator/plan/qa) + any other root-level md notes.
+cp "$SRC"/*.md "$DST/" 2>/dev/null || true
+
 # npm package manifest — enough to reinstall node_modules on restore.
 cp "$SRC/npm/package.json" "$DST/npm/" 2>/dev/null || true
 cp "$SRC/npm/package-lock.json" "$DST/npm/" 2>/dev/null || true

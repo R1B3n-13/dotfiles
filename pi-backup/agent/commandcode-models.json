@@ -570,6 +570,14 @@
       "maxTokens": 524288
     },
     {
+      "id": "stealth/pixel-canary",
+      "name": "Pixel Canary (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
+      "contextWindow": 262144,
+      "maxTokens": 65536
+    },
+    {
       "id": "poolside/laguna-s-2.1-free",
       "name": "Laguna S 2.1 (CC)",
       "api": "openai-completions",

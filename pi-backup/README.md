@@ -53,9 +53,15 @@ Scout is deliberately opinionated about *which tool answers which question*, bec
 
 The parent can also set a **thoroughness level** per dispatch: *quick* (first sufficient answer), *medium* (the main surface), *thorough* (every caller, every variant — completeness over brevity). And scout never edits anything: it has no write tools, so it can't break what it explores.
 
-## The orchestrator workflow
+## The three workflow modes
 
-Turn on `/orchestrator` and the session follows a fixed discipline instead of freelancing:
+Modes are switched with `/mode orchestrator|plan|qa` (no args shows current; `/orchestrator` still works as a back-compat toggle). The active mode appends its workflow file to the system prompt and pins a footer indicator (`🧭 orchestrator`, `🔍 plan`, `🧪 qa`). Workflow files live at `agent/orchestrator-workflow.md`, `agent/plan-workflow.md`, `agent/qa-workflow.md`.
+
+While **plan** or **qa** is active, the main session is hard-blocked from code changes at the tool-call layer: `write`/`edit` only accept `.md` paths (so plan/qa deliverables can be edited efficiently with targeted `edit` calls — no full-file rewrites), anchor-based `replace`/`insert` are blocked outright (their anchor-only path resolution cannot be verified by the gate), and bash commands matching write patterns (redirects, file mutations, package installs, git mutations) are rejected. MCP is deliberately **not** gated here — per-server MCP tool policy (including write-capable servers like a store API) belongs to the permission system's config. `browser-probe`/`reviewer` children are unaffected (they have their own allowlists). The bash gate is pattern-based — strong but not a sandbox; `/mode off` is the escape hatch.
+
+### Orchestrator mode
+
+Turn on `/mode orchestrator` and the session follows a fixed discipline instead of freelancing:
 
 ```
         ┌────────────────────────────────────────────────────┐
@@ -88,6 +94,28 @@ The point is context economics: the orchestrator spends its own window only on p
 
 ---
 
+### Plan mode
+
+`/mode plan` turns the session into a planning session: scout and researcher run the discovery in parallel (files, web), the orchestrator integrates and clarifies with the user, then drafts a reviewed spec. The adopted gstack review skills (`office-hours`, `plan-ceo-review`, `plan-eng-review`, `investigate`) are available as on-demand skill loads — no browsing, no writes; output is a spec, not code.
+
+### QA mode
+
+`/mode qa` keeps two review paths:
+
+- **Code-only review (default)** — the `reviewer` subagent inspects the diff with read/lsp/grep/ast-grep tools and returns an APPROVE/FIX verdict. No browser, no writes, no screenshots.
+- **Live verification (on demand)** — the `browser-probe` subagent drives a real browser through `agent-browser`: assertions on text/selectors/console by default, screenshots only for visual steps or failure evidence (saved as file paths, not pasted into context).
+
+### The two review subagents (mode-agnostic)
+
+- **`reviewer`** — code-only static reviewer. Tools: `read`, `lsp_diagnostics`, `anchor_grep`, `ast_grep`, `bash` (for running tests). Strict verdict format (APPROVE/FIX with reasons). Short-lived by design.
+- **`browser-probe`** — live-environment probe. Tools: `agent_browser`, `agent_browser_qa`, `agent_browser_action`, `read`, `bash`. Assert-first browser QA; screenshots are file-first and only for visual steps or failure evidence.
+
+### Adopted skills + their helper CLIs
+
+Seven workflow skills were adopted from [gstack](https://github.com/garrytan/gstack) (`office-hours`, `plan-ceo-review`, `plan-eng-review`, `review`, `investigate`, `context-save`, `context-restore`) with Claude-specific machinery stripped, tool names rewritten for pi, and every reference to unavailable helper CLIs removed. The three helper CLIs the skills actually need are vendored at `agent/skills/bin/` — de-gstaccked and renamed: `project-slug` (derive project slug + branch), `skill-config` (key-value config store), `skill-paths` (portable state-root paths).
+
+---
+
 ## What's in this repo
 
 ```
@@ -98,10 +126,11 @@ pi-backup/
 │   │   │   └── tests/                        ← deterministic selftest
 │   │   └── pi-permission-system/
 │   │       └── config.json                   ← the allow/ask/deny policy
-│   ├── agents/                               ← scout.md, worker.md, researcher.md
+│   ├── agents/                               ← scout.md, worker.md, researcher.md, reviewer.md, browser-probe.md
 │   ├── skills/                               ← ask-user decision-gate skill
 |   ├── pi-blackhole/pi-blackhole-config.json ← pi-blackhole extension config
-│   ├── orchestrator-workflow.md              ← appended by /orchestrator mode
+│   ├── orchestrator-workflow.md, plan-workflow.md,
+│   │   qa-workflow.md                        ← mode workflow files (appended by /mode)
 │   ├── GIT_PACKAGES.txt                      ← git package manifest
 │   └── npm/package.json                      ← npm package manifest
 |   └── caveman.json, mcp.json ... etc.       ← other congfigs
@@ -132,7 +161,7 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 
 **Orchestrator mode.** `/orchestrator` toggles a workflow discipline (triage → plan → parallel discovery → implement → review → capped fix loop) into the system prompt, with a footer indicator. Off by default; normal sessions are unaffected.
 
-**Testing.** `agent/extensions/subagents/tests/selftest.mjs` verifies the whole extension deterministically — compile against the installed pi's type definitions, unit tests for every renderer and buffer, a real extension-load probe, an RPC round-trip, and the permission-system contract (installed major vs. tested major, plus the integration surface) — all without a single LLM token. Run it after every pi update. `--live` adds one cheap real-model spawn check.
+**Testing.** `agent/extensions/subagents/tests/selftest.mjs` verifies the whole extension deterministically — compile against the installed pi's type definitions, unit tests for every renderer and buffer, a real extension-load probe, an RPC round-trip, and the permission-system contract (installed major vs. tested major, plus the integration surface) — all without a single LLM token. Run it after every pi update. `--live` adds one cheap real-model spawn check. The browse stack (agent-browser CLI, Chromium, browser tool registration) is probed token-free too and reports as unwired rather than failing when absent.
 
 ---
 
@@ -164,6 +193,7 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 
 - **Base architecture**: the subagent spawn/watch/lifecycle design is derived from [pi-interactive-subagents](https://github.com/amosblomqvist/pi-interactive-subagents) — that repo's source is the original this was built from, reworked to drop tmux/node-pty in favor of pi's native RPC mode and to integrate with the permission system.
 - **ask_user**: the interactive UI is vendored from [pi-ask-user](https://github.com/edlsh/pi-ask-user) (MIT), with its decision-gate skill installed alongside. The tool contract is theirs; the headless sidecar parking/resume layer around it is custom.
+- **Workflow skills + helper CLIs**: adopted and adapted from [gstack](https://github.com/garrytan/gstack) (Garry Tan's skill stack) — the review lenses, decision-brief formats, and the three helper CLIs are theirs; the pi porting, tool-name rewrites, dead-CLI stripping, and the bin renames are ours.
 - **pi** itself: [@earendil-works/pi-coding-agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent).
 
 ## Packages this setup uses
@@ -179,6 +209,8 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 | pi-ast-grep | Structural code search | [npm](https://www.npmjs.com/package/pi-ast-grep) |
 | pi-smart-web-search | Web search | [github](https://github.com/joematthews/pi-smart-web-search) |
 | pi-smart-fetch | Browser-fingerprinted URL fetching | [github](https://github.com/Thinkscape/agent-smart-fetch) |
+| pi-agent-browser-native | pi extension exposing the external agent-browser CLI as native tools (open/act/qa assert) | [npm](https://www.npmjs.com/package/pi-agent-browser-native) |
+| agent-browser | External browser-automation CLI (needs Node ≥ 24; Chromium installed via `agent-browser install`) | [npm](https://www.npmjs.com/package/agent-browser) |
 | pi-mcp-adapter | MCP server integration | [github](https://github.com/nicobailon/pi-mcp-adapter) |
 | pi-caveman | Personality/terse-output layer | [github](https://github.com/jonjonrankin/pi-caveman) |
 | pi-list-tools | Tool listing helper | [github](https://github.com/robobryce/pi-list-tools) |

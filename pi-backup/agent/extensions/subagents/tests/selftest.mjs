@@ -5,7 +5,7 @@
 // No orchestrator session, no test prompts, no token burn.
 import { createJiti } from "/usr/lib/node_modules/@earendil-works/pi-coding-agent/node_modules/jiti/lib/jiti.mjs";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 
 const PI = "/usr/lib/node_modules/@earendil-works/pi-coding-agent";
 const EXT = "/home/R1B3n/.pi/agent/extensions/subagents";
@@ -24,11 +24,12 @@ const agentDir = "/home/R1B3n/.pi/agent";
 for (const f of ["index.ts", "surface.ts", "session.ts", "activity.ts", "status.ts", "ask-ui.ts"]) {
 	existsSync(`${EXT}/${f}`) ? pass(f) : fail(`missing ${f}`);
 }
-if (existsSync(`${agentDir}/orchestrator-workflow.md`)) pass("orchestrator-workflow.md deployed");
-else fail("orchestrator-workflow.md missing");
+for (const w of ["orchestrator-workflow.md", "plan-workflow.md", "qa-workflow.md"]) {
+	existsSync(`${agentDir}/${w}`) ? pass(`${w} deployed`) : fail(`${w} missing`);
+}
 if (existsSync(`${agentDir}/skills/ask-user/SKILL.md`)) pass("ask-user skill installed");
 else fail("ask-user skill missing");
-for (const a of ["scout", "worker", "researcher"]) {
+for (const a of ["scout", "worker", "researcher", "reviewer", "browser-probe"]) {
 	const p = `${agentDir}/agents/${a}.md`;
 	if (!existsSync(p)) { fail(`agent ${a}.md missing`); continue; }
 	if (/model:\s*openrouter/.test(readFileSync(p, "utf8"))) fail(`${a}.md still has stale openrouter model`);
@@ -135,7 +136,6 @@ step("rpc child probe (framing + env + get_state, no model call)");
 
 // ── 6. Permission-system contract (version + integration surface) ───────────
 step("permission-system contract");
-step("permission-system contract");
 let permInstalled = 0;
 let permContractOk = true;
 let permTested = 0;
@@ -162,6 +162,40 @@ let permIdxSrc = "";
 		} catch (e) {
 			permContractOk = false;
 			fail(`contract check failed: ${String(e).slice(0, 120)}`);
+		}
+	}
+}
+
+// ── 6b. Browse stack probe (no model call) ──────────────────────────────────
+step("browse stack (CLI, chrome, pi tool registration)");
+{
+	const abBin = "/home/R1B3n/.local/bin/agent-browser";
+	if (!existsSync(abBin)) {
+		console.log("  (agent-browser not wired — browse unwired; that is valid)");
+	} else {
+		try {
+			const { execFileSync } = await import("node:child_process");
+			const ver = execFileSync(abBin, ["--version"], { encoding: "utf8" }).trim();
+			pass(`agent-browser CLI ${ver}`);
+			const browsers = readdirSync(`${process.env.HOME}/.agent-browser/browsers`).filter((d) => d.startsWith("chrome-"));
+			browsers.length > 0 ? pass(`chrome installed (${browsers.join(", ")})`) : fail("no chrome in ~/.agent-browser/browsers — run: agent-browser install");
+			// pi registration probe: extension load with browser tools in getAllTools (json mode, zero tokens)
+			const probe = `${TMP}/probe-browser.mjs`;
+			const out = `${TMP}/probe-browser.json`;
+			writeFileSync(probe, `export default function (pi) {
+	pi.on("session_start", async () => {
+		const fs = await import("node:fs");
+		fs.writeFileSync(${JSON.stringify(out)}, JSON.stringify((pi.getAllTools?.() ?? []).map((t) => t.name ?? t).filter((n) => String(n).startsWith("agent_browser"))));
+	});
+}`);
+			const { spawnSync } = await import("node:child_process");
+			const r = spawnSync("pi", ["--mode", "json", "--session", `${TMP}/probe-browser.jsonl`, "-e", probe, "-p", ""], { timeout: 60_000 });
+			const names = JSON.parse(readFileSync(out, "utf8"));
+			const need = ["agent_browser", "agent_browser_qa", "agent_browser_action"];
+			const missing = need.filter((n) => !names.includes(n));
+			missing.length === 0 ? pass(`browser tools registered in pi (${names.length})`) : fail(`missing browser tools: ${missing.join(", ")}`);
+		} catch (e) {
+			fail(`browse probe failed: ${String(e).slice(0, 160)}`);
 		}
 	}
 }

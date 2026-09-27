@@ -20,7 +20,7 @@ import { keyHint } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { Box, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	appendFileSync,
@@ -1329,7 +1329,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 	// var, inbox dirs, config.json, per-agent frontmatter). Warn when the
 	// installed version falls outside the range we validated against, so an
 	// upstream change surfaces as a visible notice instead of silent breakage.
-	const PERMISSION_SYSTEM_TESTED_MAJOR = 34;
+	const PERMISSION_SYSTEM_TESTED_MAJOR = 35;
 	function checkPermissionSystemCompat(ctx: ExtensionContext): void {
 		if (IS_SUBAGENT_PROCESS) return;
 		try {
@@ -1432,58 +1432,230 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 	registerAskUserTool(pi);
 	registerCommandAndRenderers(pi);
 	registerOrchestratorMode(pi);
+	registerSubagentModelCommand(pi);
+	registerModeWriteGate(pi);
 }
 
-// ── Orchestrator mode (opt-in workflow system prompt + footer status) ────────
+// ── Mode system (orchestrator / plan / qa — workflow system prompt + footer) ─
 
-const WORKFLOW_PATH = join(getAgentConfigDir(), "orchestrator-workflow.md");
-let orchestratorMode = false;
-let orchestratorWorkflowText: string | null = null;
+const AGENT_DIR = join(getAgentConfigDir(), "agents");
+const WORKFLOW_DIR = getAgentConfigDir();
 
-function loadWorkflowText(): string {
-	if (orchestratorWorkflowText === null) {
+const MODES: Record<string, { icon: string; label: string; file: string }> = {
+	orchestrator: { icon: "🧭", label: "orchestrator", file: "orchestrator-workflow.md" },
+	plan: { icon: "🔍", label: "plan", file: "plan-workflow.md" },
+	qa: { icon: "🧪", label: "qa", file: "qa-workflow.md" },
+};
+
+let activeMode: string | null = null;
+const modeTextCache = new Map<string, string>();
+
+function loadModeText(mode: string): string {
+	let text = modeTextCache.get(mode);
+	if (text === undefined) {
 		try {
-			orchestratorWorkflowText = readFileSync(WORKFLOW_PATH, "utf8").trim();
+			text = readFileSync(join(WORKFLOW_DIR, MODES[mode].file), "utf8").trim();
 		} catch {
-			orchestratorWorkflowText = "";
+			text = "";
+		}
+		modeTextCache.set(mode, text);
+	}
+	return text;
+}
+
+function setMode(pi: ExtensionAPI, mode: string | null): void {
+	activeMode = mode;
+	// Listing-time filtering: hide tools the mode fully blocks so the model
+	// never even sees them (zero wasted attempts). Tools with conditional
+	// rules (.md-only write/edit, bash write patterns) stay visible and are
+	// gated at execution time by registerModeWriteGate. Runtime reference to
+	// the MODE_READ_ONLY const below is safe: setMode only runs post-init.
+	if (!IS_SUBAGENT_PROCESS) {
+		const api = pi as any;
+		const all: string[] = (api.getAllTools?.() ?? []).map((t: any) => t.name ?? t);
+		if (mode && MODE_READ_ONLY.has(mode)) {
+			api.setActiveTools?.(all.filter((n) => n !== "replace" && n !== "insert"));
+		} else {
+			api.setActiveTools?.(all);
 		}
 	}
-	return orchestratorWorkflowText;
+	if (mode) {
+		const m = MODES[mode];
+		latestCtx?.ui.setStatus("mode", `${m.icon} ${m.label}`);
+	} else {
+		latestCtx?.ui.setStatus("mode", undefined);
+	}
+	void pi;
+}
+
+
+/**
+ * Mode write-gate: while plan/qa is active the main session is read-only for
+ * code — .md deliverables stay writable. replace/insert are blocked outright
+ * because their path resolution is anchor-based and cannot be verified here.
+ * Bash is gated by a write-pattern list — strong but not bulletproof (a
+ * determined agent can find shell escapes); the mode is a discipline, /mode
+ * off is the honest escape hatch. mcp/mcpScript stay open: MCP policy is
+ * the permission system's domain, not this gate's.
+ */
+const MODE_READ_ONLY = new Set(["plan", "qa"]);
+const MD_PATH_RE = /\.md$/i;
+const BASH_WRITE_RE =
+	/(^|[\s;&|(])(>>?|<<|\btee\b|\bsed\s+(-[a-zA-Z]*i|--in-place)|\b(rm|mv|cp|mkdir|touch|chmod|chown|truncate)\b|\bgit\s+(add|commit|push|pull|reset|checkout|merge|rebase|clean|rm)\b|\bnpm(\s+ci)?\s+(i|install|uninstall)\b|\b(pip|pip3|cargo|uv)\s+install\b|\bppid?\b|\byarn\s+(add|remove)\b)/;
+
+function registerModeWriteGate(pi: ExtensionAPI): void {
+	if (IS_SUBAGENT_PROCESS) return;
+	pi.on("tool_call", (event) => {
+		if (!activeMode || !MODE_READ_ONLY.has(activeMode)) return;
+		const toolName = (event as any).toolName as string;
+		const args = ((event as any).args ?? {}) as Record<string, unknown>;
+		const off = " Switch with /mode off (or ask the user) if code changes are genuinely needed.";
+		// mcp/mcpScript are NOT gated here — MCP tool policy (per-server
+		// allow/ask/deny, including write-capable servers) is the permission
+		// system's domain; duplicating it as a blanket ban would break
+		// legitimate read use (docs lookups etc.).
+		if (toolName === "replace" || toolName === "insert") {
+			return { block: true, reason: `Mode ${activeMode} allows editing only .md files; anchor-based edits are blocked because their target file cannot be verified here. Use the built-in edit tool (path + oldText/newText) on your .md deliverable instead.${off}` };
+		}
+		if (toolName === "write" || toolName === "edit") {
+			const target = String(args.path ?? "");
+			if (MD_PATH_RE.test(target)) return;
+			return { block: true, reason: `Mode ${activeMode} can only create or edit .md files (got "${target || "<no path>"}").${off}` };
+		}
+		if (toolName === "bash") {
+			const cmd = String(args.command ?? "");
+			if (BASH_WRITE_RE.test(cmd)) {
+				return { block: true, reason: `Mode ${activeMode} blocks shell writes (redirects, file mutations, package installs). Write deliverables with the write tool (.md only).${off}` };
+			}
+		}
+	});
 }
 
 /**
- * /orchestrator toggles the orchestrator workflow as an appended system
- * instruction for this session (footer shows the mode). Off by default.
- * Workflow text: ~/.pi/agent/orchestrator-workflow.md.
+ * /mode — workflow discipline per mode: appends the mode's workflow file to the
+ * system prompt and pins a persistent footer indicator. Off until set. Files:
+ * ~/.pi/agent/{orchestrator,plan,qa}-workflow.md.
  */
 function registerOrchestratorMode(pi: ExtensionAPI): void {
 	if (IS_SUBAGENT_PROCESS) return; // child sessions never get this
 
-	pi.registerCommand("orchestrator", {
-		description: "Toggle orchestrator mode (workflow system prompt + footer status)",
-		handler: async (_args, ctx) => {
-			orchestratorMode = !orchestratorMode;
-			if (orchestratorMode) {
-				const text = loadWorkflowText();
-				if (!text) {
-					orchestratorMode = false;
-					ctx.ui.notify(`Workflow file not found: ${WORKFLOW_PATH}`, "error");
-					return;
-				}
-				ctx.ui.setStatus("mode", "orchestrator");
-				ctx.ui.notify("Orchestrator mode ON — workflow appended to system prompt", "info");
-			} else {
-				ctx.ui.setStatus("mode", undefined);
-				ctx.ui.notify("Orchestrator mode OFF", "info");
+	pi.registerCommand("mode", {
+		description: "Set workflow mode: /mode orchestrator|plan|qa|off (no arg = show current)",
+		handler: async (args, ctx) => {
+			const name = args.trim().toLowerCase();
+			if (!name) {
+				const list = Object.keys(MODES).map((m) => (m === activeMode ? `[${m}]` : m)).join("  ");
+				ctx.ui.notify(`Mode: ${activeMode ?? "none"} — available: ${list}`, "info");
+				return;
 			}
+			if (name === "off" || name === "none") {
+				setMode(pi, null);
+				ctx.ui.notify("Mode: none — no workflow appended", "info");
+				return;
+			}
+			if (!MODES[name]) {
+				ctx.ui.notify(`Unknown mode "${name}". Available: ${Object.keys(MODES).join(", ")}, off`, "warning");
+				return;
+			}
+			const text = loadModeText(name);
+			if (!text) {
+				ctx.ui.notify(`Workflow file missing: ${join(WORKFLOW_DIR, MODES[name].file)}`, "error");
+				return;
+			}
+			setMode(pi, name);
+			ctx.ui.notify(`Mode: ${MODES[name].icon} ${name} — workflow appended to system prompt`, "info");
+		},
+	});
+
+	// Back-compat: /orchestrator toggles orchestrator mode.
+	pi.registerCommand("orchestrator", {
+		description: "Toggle orchestrator mode (same as /mode orchestrator)",
+		handler: async (_args, ctx) => {
+			const next = activeMode === "orchestrator" ? null : "orchestrator";
+			setMode(pi, next);
+			ctx.ui.notify(next ? "Orchestrator mode ON" : "Mode: none", "info");
 		},
 	});
 
 	pi.on("before_agent_start", (event) => {
-		if (!orchestratorMode) return undefined;
-		const workflow = loadWorkflowText();
+		if (!activeMode) return undefined;
+		const workflow = loadModeText(activeMode);
 		if (!workflow) return undefined;
 		return { systemPrompt: `${event.systemPrompt}\n\n${workflow}` };
+	});
+}
+
+// ── /subagent-model — change a subagent's model on the fly (notify-only, zero context) ─
+
+function readAgentModel(file: string): string | null {
+	try {
+		const m = /^model:\s*(.+)$/m.exec(readFileSync(file, "utf8"));
+		return m ? m[1].trim() : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * /subagent-model — rewrite `model:` in an agent's frontmatter. Takes effect on
+ * the next spawn (definitions are re-scanned per spawn). Reports via notify only,
+ * so it never enters the LLM context.
+ */
+function registerSubagentModelCommand(pi: ExtensionAPI): void {
+	if (IS_SUBAGENT_PROCESS) return;
+
+	pi.registerCommand("subagent-model", {
+		description: "Show or set a subagent's model: /subagent-model [name|all] [model]",
+		handler: async (args, ctx) => {
+			let files: string[] = [];
+			try {
+				files = readdirSync(AGENT_DIR).filter((f) => f.endsWith(".md")).map((f) => join(AGENT_DIR, f));
+			} catch {
+				ctx.ui.notify(`Agent dir not found: ${AGENT_DIR}`, "error");
+				return;
+			}
+			if (files.length === 0) {
+				ctx.ui.notify("No agent definitions found", "warning");
+				return;
+			}
+			const arg = args.trim();
+			if (!arg) {
+				const lines = files.map((f) => `${basename(f, ".md")}: ${readAgentModel(f) ?? "(default)"}`);
+				ctx.ui.notify(`Subagent models:\n${lines.join("\n")}\n\nSet with: /subagent-model <name|all> <model>`, "info");
+				return;
+			}
+			const spaceIdx = arg.indexOf(" ");
+			const name = spaceIdx === -1 ? arg : arg.slice(0, spaceIdx);
+			const model = spaceIdx === -1 ? "" : arg.slice(spaceIdx + 1).trim();
+			const targets = name === "all" ? files : files.filter((f) => basename(f, ".md") === name);
+			if (targets.length === 0) {
+				const names = files.map((f) => basename(f, ".md")).join(", ");
+				ctx.ui.notify(`Unknown agent "${name}". Available: ${names}`, "warning");
+				return;
+			}
+			if (!model) {
+				const lines = targets.map((f) => `${basename(f, ".md")}: ${readAgentModel(f) ?? "(default)"}`);
+				ctx.ui.notify(lines.join("\n"), "info");
+				return;
+			}
+			const changed: string[] = [];
+			for (const f of targets) {
+				try {
+					const src = readFileSync(f, "utf8");
+					if (!/^model:/m.test(src)) continue;
+					writeFileSync(f, src.replace(/^model:\s*.*$/m, `model: ${model}`));
+					changed.push(basename(f, ".md"));
+				} catch (e) {
+					ctx.ui.notify(`Failed to update ${f}: ${String(e).slice(0, 100)}`, "error");
+				}
+			}
+			ctx.ui.notify(
+				changed.length > 0
+					? `Model set to ${model} for: ${changed.join(", ")} (applies to next spawn)`
+					: "No agent files had a model: line to update",
+				changed.length > 0 ? "info" : "warning",
+			);
+		},
 	});
 }
 

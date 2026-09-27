@@ -16,7 +16,8 @@
     "npm:pi-list-tools",
     "npm:pi-smart-web-search",
     "npm:pi-smart-fetch",
-    "npm:@gotgenes/pi-permission-system"
+    "npm:@gotgenes/pi-permission-system",
+    "npm:pi-agent-browser-native"
   ],
   "tuiMode": "regular"
 }
