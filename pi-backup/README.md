@@ -112,7 +112,7 @@ Neither subagent belongs to one mode — both are spawnable from any session, an
 
 ### Adopted skills + their helper CLIs
 
-Seven workflow skills were adopted from [gstack](https://github.com/garrytan/gstack) (`office-hours`, `plan-ceo-review`, `plan-eng-review`, `review`, `investigate`, `context-save`, `context-restore`) with Claude-specific machinery stripped, tool names rewritten for pi, and every reference to unavailable helper CLIs removed. The three helper CLIs the skills actually need are vendored at `agent/skills/bin/` — de-gstaccked and renamed: `project-slug` (derive project slug + branch), `skill-config` (key-value config store), `skill-paths` (portable state-root paths).
+Seven workflow skills were adopted from [gstack](https://github.com/garrytan/gstack) (`office-hours`, `plan-ceo-review`, `plan-eng-review`, `review`, `investigate`, `context-save`, `context-restore`) with Claude-specific machinery stripped, tool names rewritten for pi, and every reference to unavailable helper CLIs removed. gstack's own browsing machinery (the Aside agent, the /browse skill, gstack-render) was removed and remapped: live-page lookups go through browser-probe / the native agent_browser tools. The three helper CLIs the skills actually need are vendored at `agent/skills/bin/` — de-gstaccked and renamed: `project-slug` (derive project slug + branch), `skill-config` (key-value config store), `skill-paths` (portable state-root paths).
 
 ---
 

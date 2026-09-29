@@ -2,6 +2,14 @@
   "version": 1,
   "models": [
     {
+      "id": "claude-sonnet-5-5",
+      "name": "Claude Sonnet 5.5 (CC)",
+      "api": "anthropic-messages",
+      "reasoning": false,
+      "contextWindow": 1000000,
+      "maxTokens": 65536
+    },
+    {
       "id": "claude-sonnet-5",
       "name": "Claude Sonnet 5 (CC)",
       "api": "anthropic-messages",
@@ -190,6 +198,14 @@
       "name": "DeepSeek V4.1 Flash (CC)",
       "api": "openai-completions",
       "reasoning": true,
+      "contextWindow": 1000000,
+      "maxTokens": 65536
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash-fast",
+      "name": "DeepSeek V4.1 Flash Fast (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
       "contextWindow": 1000000,
       "maxTokens": 65536
     },
@@ -573,9 +589,9 @@
       "id": "stealth/pixel-canary",
       "name": "Pixel Canary (CC)",
       "api": "openai-completions",
-      "reasoning": false,
+      "reasoning": true,
       "contextWindow": 262144,
-      "maxTokens": 65536
+      "maxTokens": 131072
     },
     {
       "id": "poolside/laguna-s-2.1-free",

@@ -360,13 +360,10 @@ changes or write findings into the plan yet.
 - **Complexity check:** Count files and new classes/services; seek fewer moving parts. Use these counts in B.
 - **Search check:** For each new architectural pattern, infrastructure component
    or concurrency approach, research built-ins, current practice and pitfalls
-   through Aside (entrypoint readiness), one read-only request per pattern:
+   through a browser-probe dispatch (read-only), one request per pattern:
 
-   ```bash
-   _aside_exec "Search the web for {framework} {pattern} built-in, {pattern} best practice {current year}, and {framework} {pattern} pitfalls. read-only: do not sign in, submit, or change anything. Reply with up to 8 bullets, each with its source URL, then stop."
-   ```
 
-   If Aside is unavailable, use host web_search for these queries. With neither,
+   If no browser is available, use the native web_search for these queries. With neither,
    skip and note: "Search unavailable — proceeding with in-distribution knowledge only."
 
    Prefer available built-ins. Label recommendations **[Layer 1]**, **[Layer 2]**,

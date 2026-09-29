@@ -31,6 +31,17 @@ while read -r line; do
 	fi
 done < "$BAK/GIT_PACKAGES.txt"
 
+# pi-agent-browser-native's peers (@earendil-works/pi-ai, pi-tui) must resolve
+# from ~/.pi/agent/npm; ESM lookup cannot see pi's bundled copies on its own.
+PI_GLOBAL="$(npm root -g 2>/dev/null)/@earendil-works/pi-coding-agent"
+if [ -d "$PI_GLOBAL/node_modules/@earendil-works" ]; then
+	mkdir -p "$DST/npm/node_modules/@earendil-works"
+	for peer in pi-ai pi-tui; do
+		[ -e "$DST/npm/node_modules/@earendil-works/$peer" ] || \
+			ln -s "$PI_GLOBAL/node_modules/@earendil-works/$peer" "$DST/npm/node_modules/@earendil-works/$peer" 2>/dev/null || true
+	done
+fi
+
 # Browse stack (needs Node >= 24 — the agent-browser CLI hard-requires it).
 if command -v node >/dev/null 2>&1; then
 	NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
