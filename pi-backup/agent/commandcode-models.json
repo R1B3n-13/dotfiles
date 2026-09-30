@@ -90,6 +90,14 @@
       "maxTokens": 65536
     },
     {
+      "id": "gpt-6.1-sol",
+      "name": "GPT-6.1 Sol (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
+      "contextWindow": 1050000,
+      "maxTokens": 65536
+    },
+    {
       "id": "gpt-6-sol",
       "name": "GPT-6 Sol (CC)",
       "api": "openai-completions",
@@ -608,6 +616,14 @@
       "reasoning": true,
       "contextWindow": 262144,
       "maxTokens": 32768
+    },
+    {
+      "id": "inclusionai/ling-3.1-flash:free",
+      "name": "Ling 3.1 Flash (CC)",
+      "api": "openai-completions",
+      "reasoning": false,
+      "contextWindow": 262144,
+      "maxTokens": 65536
     },
     {
       "id": "meta/muse-spark-1.1",

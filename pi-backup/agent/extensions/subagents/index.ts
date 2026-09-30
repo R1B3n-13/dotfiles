@@ -1329,7 +1329,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 	// var, inbox dirs, config.json, per-agent frontmatter). Warn when the
 	// installed version falls outside the range we validated against, so an
 	// upstream change surfaces as a visible notice instead of silent breakage.
-	const PERMISSION_SYSTEM_TESTED_MAJOR = 35;
+	const PERMISSION_SYSTEM_TESTED_MAJOR = 36;
 	function checkPermissionSystemCompat(ctx: ExtensionContext): void {
 		if (IS_SUBAGENT_PROCESS) return;
 		try {

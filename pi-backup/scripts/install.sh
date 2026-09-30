@@ -21,6 +21,8 @@ if [ -f "$BAK/npm/package.json" ]; then
 	mkdir -p "$DST/npm"
 	cp "$BAK/npm/"package*.json "$DST/npm/"
 	(cd "$DST/npm" && npm install)
+	# npm's install-scripts policy can skip postinstall — self-heal explicitly.
+	(cd "$DST/npm" && node scripts/fixup.js 2>/dev/null) || true
 fi
 
 # Reinstall git packages (e.g. ponytail).

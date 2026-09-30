@@ -33,6 +33,8 @@ cp "$SRC"/*.md "$DST/" 2>/dev/null || true
 # npm package manifest — enough to reinstall node_modules on restore.
 cp "$SRC/npm/package.json" "$DST/npm/" 2>/dev/null || true
 cp "$SRC/npm/package-lock.json" "$DST/npm/" 2>/dev/null || true
+mkdir -p "$DST/npm/scripts"
+cp "$SRC/npm/scripts/"*.js "$DST/npm/scripts/" 2>/dev/null || true
 
 # Git-installed packages: public repos, reinstall instead of copying.
 find "$SRC/git/github.com" -mindepth 2 -maxdepth 2 -type d 2>/dev/null \
