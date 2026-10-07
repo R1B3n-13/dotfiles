@@ -1,6 +1,6 @@
 {
   "theme": "noctalia",
-  "lastChangelogVersion": "0.99.1",
+  "lastChangelogVersion": "1.0.4",
   "defaultProvider": "commandcode",
   "defaultModel": "meituan/LongCat-2.0:free",
   "packages": [
@@ -17,7 +17,18 @@
     "npm:pi-smart-web-search",
     "npm:pi-smart-fetch",
     "npm:@gotgenes/pi-permission-system",
-    "npm:pi-agent-browser-native"
+    "npm:pi-agent-browser-native",
+    "npm:@shopify/ai-toolkit"
   ],
-  "tuiMode": "regular"
+  "tuiMode": "regular",
+  "extensions": [
+    "-builtin:mcp"
+  ],
+  "defaultTools": [
+    "read",
+    "bash",
+    "edit",
+    "write",
+    "codemode"
+  ]
 }

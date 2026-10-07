@@ -30,6 +30,7 @@ import {
 	readdirSync,
 	unlinkSync,
 	writeFileSync,
+	rmSync,
 } from "node:fs";
 import { runInteractiveAsk } from "./ask-ui.ts";
 import {
@@ -124,6 +125,33 @@ const CHILD_TOOL_ALLOWLIST: Set<string> | null = (() => {
 	const list = raw.split(",").map((s) => s.trim()).filter(Boolean);
 	return list.length > 0 ? new Set(list) : null;
 })();
+
+
+/** Children that were in flight and may not have finished gracefully:
+ * in the registry for this session, session file + loadout present, but no
+ * .exit sidecar and not currently running. After a host restart these are
+ * resumable via subagent_message. */
+interface InFlightChild { name: string; agent: string; sessionFile: string }
+
+function findInFlightChildren(ctx: { sessionManager: { getSessionDir(): string; getSessionId(): string } }): InFlightChild[] {
+	try {
+		const artifactDir = getArtifactDir(ctx.sessionManager.getSessionDir(), ctx.sessionManager.getSessionId());
+		const registry = readNameRegistry(artifactDir);
+		const runningPaths = new Set([...runningSubagents.values()].map((r) => r.sessionFile));
+		const out: InFlightChild[] = [];
+		for (const [name, entry] of Object.entries(registry)) {
+			const sessionFile = (entry as { sessionFile?: string }).sessionFile ?? "";
+			if (!sessionFile || runningPaths.has(sessionFile)) continue;
+			if (!existsSync(sessionFile)) continue;
+			if (existsSync(`${sessionFile}.exit`)) continue; // finished with reported error
+			if (!readSubagentLoadout(sessionFile)) continue; // finished normally? no loadout removal happens; loadout is the spawn proof
+			out.push({ name, agent: String((entry as { agent?: string }).agent ?? ""), sessionFile });
+		}
+		return out;
+	} catch {
+		return [];
+	}
+}
 
 function getAgentConfigDir(): string {
 	return process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
@@ -876,19 +904,80 @@ export interface RibbonRenderOptions {
 	theme?: unknown;
 }
 
-/** Word-wrap a line into display segments of ~`cols` visible characters. */
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+const stripAnsi = (t: string): string => t.replace(ANSI_RE, "");
+const visibleLen = (t: string): number => stripAnsi(t).length;
+
+/** Word-wrap a line into display segments of ~`cols` VISIBLE characters.
+ * ANSI SGR codes are preserved (not counted toward width). Pass 1 wraps the
+ * stripped text; pass 2 consumes the raw stream against those visible lengths,
+ * accumulating codes and re-emitting them at each row start so colors survive
+ * wrapping. */
 function wrapLine(text: string, cols: number): string[] {
-	if (text.length === 0) return [""];
-	const out: string[] = [];
-	let rest = text;
-	while (rest.length > cols) {
-		let cut = rest.lastIndexOf(" ", cols);
-		if (cut < Math.floor(cols * 0.5)) cut = cols;
-		out.push(rest.slice(0, cut));
-		rest = rest.slice(cut).replace(/^ +/, "");
+	const bare = stripAnsi(text);
+	if (bare.length === 0) return [""];
+
+	// Pass 1: greedy word wrap on the stripped text → rows of visible chars.
+	const cuts: number[] = []; // visible CUT index (chars consumed) per row
+	let vis = 0;
+	let rowStart = 0;
+	let lastSpace = -1;
+	for (let i = 0; i < bare.length; i++) {
+		const ch = bare[i];
+		if (vis === cols) {
+			if (lastSpace >= Math.floor(cols * 0.3)) cuts.push(lastSpace + 1);
+			else cuts.push(i);
+			rowStart = cuts[cuts.length - 1];
+			vis = i - rowStart;
+		}
+		if (ch === " ") lastSpace = i;
+		vis++;
 	}
-	out.push(rest);
-	return out;
+	if (cuts.length === 0 || cuts[cuts.length - 1] < bare.length) cuts.push(bare.length);
+
+	// Pass 2: walk the raw stream token-by-token (SGR codes have no width);
+	// flush a row each time the visible count crosses a cut index.
+	const rows: string[] = [];
+	const re = /\x1b\[[0-9;]*m/g;
+	let openInit = "";
+	let row = openInit;
+	let visIdx = -1;
+	let cutIdx = 0;
+	let m: RegExpExecArray | null;
+	const reLoop = new RegExp(re.source, "g");
+	reLoop.lastIndex = 0;
+	let last = 0;
+	const flushAt = () => {
+		while (cutIdx < cuts.length - 1 && visIdx >= cuts[cutIdx]) {
+			rows.push(row);
+			row = openInit;
+			cutIdx++;
+		}
+	};
+	while (last <= text.length) {
+		reLoop.lastIndex = last;
+		m = reLoop.exec(text);
+		const chunkEnd = m ? m.index : text.length;
+		for (const ch of text.slice(last, chunkEnd)) {
+			visIdx++;
+			flushAt();
+			row += ch;
+		}
+		if (m) {
+			row += m[0];
+			openInit = /(?:00m|39m|49m)$/.test(m[0]) ? "" : openInit + m[0];
+			last = m.index + m[0].length;
+		} else break;
+	}
+	while (cutIdx < cuts.length - 1 || row !== "" || rows.length === 0) {
+		rows.push(row);
+		row = openInit;
+		if (cutIdx < cuts.length - 1) cutIdx++;
+		else break;
+	}
+	// drop possible empty tail rows (over-cut on trailing spaces)
+	while (rows.length > 1 && stripAnsi(rows[rows.length - 1]).trim() === "") rows.pop();
+	return rows;
 }
 
 /** Estimated content rows for zoom mode (~half the terminal, clamped). */
@@ -920,7 +1009,10 @@ export function renderRibbonLines(entries: RibbonEntry[], width: number, opts: R
 	const lines: string[] = [];
 
 	const dim = typeof (opts.theme as any | undefined)?.fg === "function" ? (opts.theme as any) : null;
-	const styleLine = (text: string) => (text.startsWith("┆ ") && dim ? dim.fg("dim", text) : text);
+	const styleLine = (text: string) => {
+		if (text.includes("\x1b[")) return text; // pre-colored (diff shades) — pass through
+		return text.startsWith("┆ ") && dim ? dim.fg("dim", text) : text;
+	};
 	const tops = visible.map((entry, i) => {
 		const elapsed = formatElapsedShort(Math.floor((Date.now() - entry.startTime) / 1000));
 		const isFocus = ribbonOffset + i === focus;
@@ -948,10 +1040,10 @@ export function renderRibbonLines(entries: RibbonEntry[], width: number, opts: R
 			for (let i = source.length - 1 - back; i >= 0 && display.length < needed; i--) {
 				const segs = wrapLine(source[i] ?? "", Math.max(10, boxWidth - 4));
 				for (let s = segs.length - 1; s >= 0 && display.length < needed; s--) {
-					display.unshift(s === 0 ? segs[s] : `  ${segs[s]}`);
+					display.unshift(s === 0 ? segs[s] : segs[0].startsWith("┆ ") ? `┆ ${segs[s]}` : `  ${segs[s]}`);
 				}
 			}
-			let text = display[Math.min(row, display.length - 1)] ?? "";
+			let text = display[row] ?? "";
 			if (row === 0 && text === "") text = entry.statusText;
 			return boxLine(` ${styleLine(text)}`, boxWidth, paneColor);
 		}
@@ -1329,7 +1421,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 	// var, inbox dirs, config.json, per-agent frontmatter). Warn when the
 	// installed version falls outside the range we validated against, so an
 	// upstream change surfaces as a visible notice instead of silent breakage.
-	const PERMISSION_SYSTEM_TESTED_MAJOR = 36;
+	const PERMISSION_SYSTEM_TESTED_MAJOR = 40;
 	function checkPermissionSystemCompat(ctx: ExtensionContext): void {
 		if (IS_SUBAGENT_PROCESS) return;
 		try {
@@ -1447,6 +1539,15 @@ const MODES: Record<string, { icon: string; label: string; file: string }> = {
 	qa: { icon: "🧪", label: "qa", file: "qa-workflow.md" },
 };
 
+/** Skills kept visible per mode; the catalog is cheap (~1.2k tokens) but a
+ * mode's context should only carry the lenses it can actually run. When no
+ * mode is active, everything stays visible. */
+const MODE_SKILLS: Record<string, string[]> = {
+	orchestrator: ["investigate", "context-save", "context-restore", "review"],
+	plan: ["office-hours", "plan-ceo-review", "plan-eng-review", "investigate", "review"],
+	qa: ["review", "investigate"],
+};
+
 let activeMode: string | null = null;
 const modeTextCache = new Map<string, string>();
 
@@ -1463,8 +1564,19 @@ function loadModeText(mode: string): string {
 	return text;
 }
 
+/** Persist the active mode so it survives restarts (loadshedding, /resume). */
+const MODE_STATE_PATH = join(getAgentConfigDir(), "mode-state.json");
+
+function persistMode(mode: string | null): void {
+	try {
+		if (mode) writeFileSync(MODE_STATE_PATH, JSON.stringify({ mode }), "utf8");
+		else rmSync(MODE_STATE_PATH, { force: true });
+	} catch {}
+}
+
 function setMode(pi: ExtensionAPI, mode: string | null): void {
 	activeMode = mode;
+	persistMode(mode);
 	// Listing-time filtering: hide tools the mode fully blocks so the model
 	// never even sees them (zero wasted attempts). Tools with conditional
 	// rules (.md-only write/edit, bash write patterns) stay visible and are
@@ -1577,11 +1689,43 @@ function registerOrchestratorMode(pi: ExtensionAPI): void {
 		},
 	});
 
+	let resumeHintPending: string[] | null = null;
+	pi.on("session_start", (_event, ctx) => {
+		if (IS_SUBAGENT_PROCESS || !ctx?.sessionManager) return;
+		// Restore the persisted workflow mode, if any.
+		try {
+			const saved = JSON.parse(readFileSync(MODE_STATE_PATH, "utf8"));
+			if (saved && typeof saved.mode === "string" && MODES[saved.mode]) {
+				activeMode = saved.mode;
+				latestCtx = ctx as typeof latestCtx;
+				ctx.ui.setStatus("mode", `${MODES[saved.mode].icon} ${MODES[saved.mode].label}`);
+				ctx.ui.notify(`Mode restored: ${MODES[saved.mode].icon} ${saved.mode}`, "info");
+			}
+		} catch {}
+		try {
+			const inFlight = findInFlightChildren(ctx);
+			if (inFlight.length > 0) resumeHintPending = inFlight.map((c) => c.name);
+		} catch {}
+	});
 	pi.on("before_agent_start", (event) => {
-		if (!activeMode) return undefined;
+		// Mode-scoped skill catalog: keep only the lenses this mode can run.
+		if (activeMode && event.systemPromptOptions?.skills && MODE_SKILLS[activeMode]) {
+			const keep = new Set(MODE_SKILLS[activeMode]);
+			const opts = event.systemPromptOptions as { skills?: Array<{ name?: string; filePath?: string }> };
+			if (Array.isArray(opts.skills)) opts.skills = opts.skills.filter((sk) => !!sk?.name && keep.has(sk.name));
+		}
+		let systemPrompt = event.systemPrompt;
+		if (resumeHintPending && resumeHintPending.length > 0) {
+			const names = resumeHintPending.join(", ");
+			systemPrompt += `\n\nSubagents were in flight when this session was interrupted: ${names}. To continue any of them, call subagent_message with its name and a short message — the result arrives as a steer. Do not assume they are gone; do not re-run their task from scratch without asking.`;
+			resumeHintPending = null;
+		}
+		if (!activeMode) {
+			return systemPrompt === event.systemPrompt ? undefined : { systemPrompt };
+		}
 		const workflow = loadModeText(activeMode);
-		if (!workflow) return undefined;
-		return { systemPrompt: `${event.systemPrompt}\n\n${workflow}` };
+		if (!workflow) return systemPrompt === event.systemPrompt ? undefined : { systemPrompt };
+		return { systemPrompt: `${systemPrompt}\n\n${workflow}` };
 	});
 }
 
@@ -1865,18 +2009,41 @@ function registerSubagentsListTool(pi: ExtensionAPI) {
 		promptSnippet: "List all available subagent definitions.",
 		parameters: Type.Object({}),
 
-		async execute() {
+		async execute(_args, _up, _onUpdate, ctx) {
 			const list = discoverAgentDefinitions().filter((agent) => !agent.disableModelInvocation);
-			if (list.length === 0) {
+			const parts: string[] = [];
+			// Currently running direct children of THIS session.
+			const running = [...runningSubagents.values()];
+			if (running.length > 0) {
+				parts.push("Running now:");
+				for (const r of running) {
+					const status = formatWidgetRightLabel(classifyStatus(r.statusState, Date.now())).trim();
+					parts.push(`• ${r.name}${r.agent ? ` (${r.agent})` : ""} — ${status || "running"}. Results arrive as steer messages; do not poll.`);
+				}
+			}
+			// In-flight children from a previous run of this session (host restart /
+			// abrupt end): resumable via subagent_message.
+			let inFlight: InFlightChild[] = [];
+			try {
+				inFlight = findInFlightChildren(ctx as unknown as Parameters<typeof findInFlightChildren>[0]);
+			} catch {}
+			if (inFlight.length > 0) {
+				parts.push("In flight from an earlier run (session was interrupted) — resume with subagent_message(name, message); results arrive as steers:");
+				for (const c of inFlight) {
+					parts.push(`• ${c.name}${c.agent ? ` (${c.agent})` : ""}`);
+				}
+			}
+			if (list.length === 0 && parts.length === 0) {
 				return { content: [{ type: "text", text: "No subagent definitions found." }], details: { agents: [] } };
 			}
+			parts.push("Available definitions:");
 			const lines = list.map((a) => {
 				const badge = a.source === "project" ? " (project)" : "";
 				const desc = a.description ? ` — ${a.description}` : "";
 				const model = a.model ? ` [${a.model}]` : "";
 				return `• ${a.name}${badge}${model}${desc}`;
 			});
-			return { content: [{ type: "text", text: lines.join("\n") }], details: { agents: list } };
+			return { content: [{ type: "text", text: [...parts, ...lines].join("\n") }], details: { agents: list, running, inFlight } };
 		},
 
 		renderResult(result, _opts, theme) {

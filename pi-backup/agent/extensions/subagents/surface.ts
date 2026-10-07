@@ -204,9 +204,13 @@ export function trackDisplayState(child: RpcChild, event: RpcChildEvent): void {
 		const short = summarizeToolResult(event.result);
 		if (short) pushShort(child, `${icon} ${toolName}: ${short}`);
 		const full = summarizeToolResultLines(event.result, RESULT_MAX_LINES);
+		const isEdit = EDIT_FAMILY_TOOLS.has(toolName);
 		if (full.length > 0) {
 			pushFull(child, `${icon} ${toolName}: ${full[0]}`);
-			for (let i = 1; i < full.length; i++) pushFull(child, `  ${full[i]}`);
+			for (let i = 1; i < full.length; i++) {
+				const body = full[i];
+				pushFull(child, isEdit ? `  ${colorizeDiffLine(body)}` : `  ${body}`);
+			}
 		}
 		return;
 	}
@@ -259,6 +263,24 @@ export function summarizeToolArgs(toolName: string, args: unknown, maxLen = 60):
 	}
 	return "";
 }
+
+
+// ── ANSI diff shading (zoom pane) ────────────────────────────────────────────
+/** ANSI shades matching pi's transcript diff rendering. */
+const DIFF_ADD = "\x1b[38;5;71m";
+const DIFF_DEL = "\x1b[38;5;131m";
+const DIFF_HUNK = "\x1b[90m";
+const RST_CODE = "\x1b[39m";
+
+/** Colorize one line of a unified-diff-ish body: +/-/@@ prefixes in shades. */
+function colorizeDiffLine(line: string): string {
+	if (/^\+/.test(line)) return `${DIFF_ADD}${line}${RST_CODE}`;
+	if (/^-/.test(line)) return `${DIFF_DEL}${line}${RST_CODE}`;
+	if (/^@@/.test(line)) return `${DIFF_HUNK}${line}${RST_CODE}`;
+	return line;
+}
+
+const EDIT_FAMILY_TOOLS = new Set(["edit", "replace", "insert", "write", "undo_last_change"]);
 
 /** First meaningful text line of a tool result, truncated. */
 export function summarizeToolResult(result: unknown): string {
