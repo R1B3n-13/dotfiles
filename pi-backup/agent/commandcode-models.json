@@ -74,6 +74,14 @@
       "maxTokens": 65536
     },
     {
+      "id": "claude-haiku-5-5",
+      "name": "Claude Haiku 5.5 (CC)",
+      "api": "anthropic-messages",
+      "reasoning": true,
+      "contextWindow": 1000000,
+      "maxTokens": 65536
+    },
+    {
       "id": "claude-haiku-4-5-20251001",
       "name": "Claude Haiku 4.5 (CC)",
       "api": "anthropic-messages",
@@ -586,6 +594,14 @@
       "maxTokens": 65536
     },
     {
+      "id": "stealth/glyph-cluster:free",
+      "name": "Glyph Cluster (CC)",
+      "api": "openai-responses",
+      "reasoning": true,
+      "contextWindow": 256000,
+      "maxTokens": 256000
+    },
+    {
       "id": "poolside/laguna-s-2.1-free",
       "name": "Laguna S 2.1 (CC)",
       "api": "openai-responses",
@@ -650,6 +666,14 @@
       "maxTokens": 65536
     },
     {
+      "id": "meta/muse-wonder-1.0",
+      "name": "Muse Wonder (CC)",
+      "api": "openai-responses",
+      "reasoning": false,
+      "contextWindow": 1048576,
+      "maxTokens": 65536
+    },
+    {
       "id": "xai/grok-4.5",
       "name": "Grok 4.5 (CC)",
       "api": "openai-responses",
@@ -677,9 +701,9 @@
       "id": "mistral/mistral-large-4",
       "name": "Mistral Large 4 (CC)",
       "api": "openai-responses",
-      "reasoning": false,
+      "reasoning": true,
       "contextWindow": 524288,
-      "maxTokens": 65536
+      "maxTokens": 262144
     }
   ]
 }
