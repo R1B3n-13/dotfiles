@@ -215,7 +215,7 @@ if (process.argv.includes("--live")) {
 	const sessionFile = `${TMP}/live.jsonl`;
 	const child = spawnRpcChild({
 		id: "livetest",
-		args: ["--mode", "rpc", "--session", sessionFile, "--model", "inclusionai/ling-3.0-flash-sante:free"],
+		args: ["--mode", "rpc", "--session", sessionFile, "--model", "minimax/minimax-m3.1-flash-preview:free"],
 		env: {
 			PI_BLACKHOLE_PASSIVE: "1",
 			PI_SUBAGENT_SESSION: sessionFile,
