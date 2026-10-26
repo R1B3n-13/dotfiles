@@ -219,7 +219,7 @@ if (process.argv.includes("--live")) {
 	const sessionFile = `${TMP}/live.jsonl`;
 	const child = spawnRpcChild({
 		id: "livetest",
-		args: ["--mode", "rpc", "--session", sessionFile, "--model", "minimax/minimax-m3.1-flash-preview:free"],
+		args: ["--mode", "rpc", "--session", sessionFile, "--model", "commandcode/minimax/minimax-m3.1-flash-preview:free"],
 		env: {
 			PI_BLACKHOLE_PASSIVE: "1",
 			PI_SUBAGENT_SESSION: sessionFile,
@@ -253,6 +253,49 @@ if (process.argv.includes("--live")) {
 	}
 } else {
 	console.log("\n(live probe skipped — pass --live for one cheap model call)");
+}
+
+if (process.argv.includes("--live")) {
+	step("extension tool pipeline probe (--live: dispatcher-level canaries)");
+	const jiti2 = createJiti(import.meta.url, {
+		alias: {
+			"@earendil-works/pi-coding-agent": PI + "/dist/index.js",
+			"@earendil-works/pi-tui": PI + "/node_modules/@earendil-works/pi-tui/dist/index.js",
+			"@sinclair/typebox": PI + "/node_modules/typebox/build/index.mjs",
+		},
+	});
+	const surface2 = await jiti2.import(`${EXT}/surface.ts`);
+	const { spawnRpcChild: spawn2, rpcCommand: rpc2, killChild: kill2 } = surface2;
+	const sf2 = `${TMP}/live-tools.jsonl`;
+	const child2 = spawn2({
+		id: "livetools",
+		args: ["--mode", "rpc", "--session", sf2, "--model", "commandcode/minimax/minimax-m3.1-flash-preview:free"],
+		env: { PI_BLACKHOLE_PASSIVE: "1" },
+		cwd: TMP,
+		sessionFile: sf2,
+	});
+	try {
+		await rpc2(child2, {
+			type: "prompt",
+			message:
+				'Do exactly two tool calls and nothing else: 1) subagents_list (no arguments), 2) web_search with searches=["hello world test probe"]. Then reply with only: SUBLIST=<count of bullet lines in the Available definitions list> WEBLINKS=<the number in the web_search result details summary>.',
+		}, 180_000);
+	} catch (e) {
+		fail(`tool-pipeline prompt failed: ${String(e).slice(0, 160)}`);
+	}
+	await new Promise((res) => {
+		const t0 = Date.now();
+		const iv = setInterval(() => {
+			const session = existsSync(sf2) ? readFileSync(sf2, "utf8") : "";
+			if ((child2.exited && session.length > 0) || Date.now() - t0 > 180_000) { clearInterval(iv); res(null); }
+		}, 500);
+	});
+	kill2(child2);
+	const session2 = existsSync(sf2) ? readFileSync(sf2, "utf8") : "";
+	const subOk = session2.includes("Available definitions") && !session2.includes("Cannot read properties");
+	const webOk = /(brave|bing)/.test(session2) && !session2.includes("Cannot read properties");
+	subOk ? pass("subagents_list dispatched with real input") : fail("subagents_list did not run through the dispatcher");
+	webOk ? pass("web_search dispatched with real input") : fail("web_search crashed or returned nothing (signature break?)");
 }
 
 // Version-drift acceptance: only when everything else passed and the contract

@@ -2009,7 +2009,7 @@ function registerSubagentsListTool(pi: ExtensionAPI) {
 		promptSnippet: "List all available subagent definitions.",
 		parameters: Type.Object({}),
 
-		async execute(_args, _up, _onUpdate, ctx) {
+		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			const list = discoverAgentDefinitions().filter((agent) => !agent.disableModelInvocation);
 			const parts: string[] = [];
 			// Currently running direct children of THIS session.
