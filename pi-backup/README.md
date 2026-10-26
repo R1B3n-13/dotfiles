@@ -206,9 +206,8 @@ The centerpiece, built for this setup. It lives in `agent/extensions/subagents/`
 | pi-hashline-edit-pro | Hashline-anchored editing tools | [github](https://github.com/YuGiMob/pi-hashline-edit-pro) |
 | pi-lsp-adapter | LSP tools (definitions, refs, diagnostics) | [github](https://github.com/nikmmd/pi-lsp-adapter) |
 | pi-ast-grep | Structural code search | [npm](https://www.npmjs.com/package/pi-ast-grep) |
-| pi-smart-web-search | Web search | [github](https://github.com/joematthews/pi-smart-web-search) |
-| pi-smart-fetch | Browser-fingerprinted URL fetching | [github](https://github.com/Thinkscape/agent-smart-fetch) |
 | pi-agent-browser-native | pi extension exposing the external agent-browser CLI as native tools (open/act/qa assert) | [npm](https://www.npmjs.com/package/pi-agent-browser-native) |
+| browser-web | In-house web tools (`web_search` via Bing on the agent-browser read pipeline; `web_fetch`/`batch_web_fetch` with `browser:true` rendered-DOM mode). Replaced pi-smart-web-search + pi-smart-fetch. | local extension |
 | agent-browser | External browser-automation CLI (needs Node ≥ 24; Chromium installed via `agent-browser install`) | [npm](https://www.npmjs.com/package/agent-browser) |
 | pi-mcp-adapter | MCP server integration | [github](https://github.com/nicobailon/pi-mcp-adapter) |
 | pi-caveman | Personality/terse-output layer | [github](https://github.com/jonjonrankin/pi-caveman) |

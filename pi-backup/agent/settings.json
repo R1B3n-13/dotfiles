@@ -14,8 +14,6 @@
     "npm:pi-lsp-adapter",
     "npm:pi-ast-grep",
     "npm:pi-list-tools",
-    "npm:pi-smart-web-search",
-    "npm:pi-smart-fetch",
     "npm:@gotgenes/pi-permission-system",
     "npm:pi-agent-browser-native",
     "npm:@shopify/ai-toolkit"

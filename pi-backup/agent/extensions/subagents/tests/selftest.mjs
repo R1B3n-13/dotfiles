@@ -98,6 +98,10 @@ step("extension load probe (no model call)");
 		const need = ["subagent", "subagent_message", "subagents_list", "ask_user"];
 		const missing = need.filter((t) => !tools.includes(t));
 		missing.length === 0 ? pass(`all 4 tools registered (${tools.length} total)`) : fail(`missing tools: ${missing.join(", ")}`);
+		const webNeed = ["web_search", "web_fetch", "batch_web_fetch"];
+		const webMissing = webNeed.filter((t) => !tools.includes(t));
+		webMissing.length === 0 ? pass("web tools registered (browser-web)") : fail(`missing web tools: ${webMissing.join(", ")}`);
+		tools.length !== new Set(tools).size ? fail("duplicate tool names — an old web extension is still installed") : pass("no duplicate tool names");
 		if (existsSync(out2)) rmSync(out2);
 	}
 }
