@@ -27,6 +27,10 @@ cp "$SRC/pi-blackhole/pi-blackhole-config.json" "$DST/pi-blackhole/" 2>/dev/null
 cp -r "$SRC/agents" "$DST/agents" 2>/dev/null || true
 cp -r "$SRC/skills" "$DST/skills" 2>/dev/null || true
 
+# User-side UI configs that live outside ~/.pi/agent (ponytail footer prefs).
+mkdir -p "$DST/config"
+cp "$HOME/.config/ponytail/config.json" "$DST/config/ponytail-config.json" 2>/dev/null || true
+
 # Mode workflow files (orchestrator/plan/qa) + any other root-level md notes.
 cp "$SRC"/*.md "$DST/" 2>/dev/null || true
 

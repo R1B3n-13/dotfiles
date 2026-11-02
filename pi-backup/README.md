@@ -55,9 +55,22 @@ The parent can also set a **thoroughness level** per dispatch: *quick* (first su
 
 ## The three workflow modes
 
-Modes are switched with `/mode orchestrator|plan|qa` (no args shows current; `/orchestrator` still works as a back-compat toggle). The active mode appends its workflow file to the system prompt and pins a footer indicator (`🧭 orchestrator`, `🔍 plan`, `🧪 qa`). Workflow files live at `agent/orchestrator-workflow.md`, `agent/plan-workflow.md`, `agent/qa-workflow.md`.
+Four modes — normal is a first-class state, not an absence:
 
-While **plan** or **qa** is active, the main session is hard-blocked from code changes at the tool-call layer: `write`/`edit` only accept `.md` paths (so plan/qa deliverables can be edited efficiently with targeted `edit` calls — no full-file rewrites), anchor-based `replace`/`insert` are blocked outright (their anchor-only path resolution cannot be verified by the gate), and bash commands matching write patterns (redirects, file mutations, package installs, git mutations) are rejected. MCP is deliberately **not** gated here — per-server MCP tool policy (including write-capable servers like a store API) belongs to the permission system's config. `browser-probe`/`reviewer` children are unaffected (they have their own allowlists). The bash gate is pattern-based — strong but not a sandbox; `/mode off` is the escape hatch.
+| Footer | Mode | Writes | Gate policy |
+|---|---|---|---|
+| `💬 normal · gate <policy>` | normal | governed by the permission system + gate preset | ✓ applies |
+| `🧭 orchestrator · gate <policy>` | orchestrator | same | ✓ applies |
+| `📋 plan` | plan | **nothing — structurally read-only** | n/a |
+| `🔍 qa` | qa | **nothing — structurally read-only** | n/a |
+
+`/mode orchestrator|plan|qa` switches (no args shows current; `/mode off`/`/orchestrator` menu exits). `/gate ask|auto|strict` presets the permission-system posture in the writer modes (auto = permission yolo: asks become allows, `deny` rules still enforce); `/gate` in plan/qa reports n/a.
+
+**Session-scoped state.** Mode + gate live in the session's own artifacts dir — a fresh session always boots 💬 normal; only the session where you actually switched restores that mode on reopen. No cross-session bleed.
+
+**Closing menus (deliverables).** Plan and QA end with a mandatory `ask_user` menu: `[Selecting 1-3 switches to Normal mode]` — every numbered action exits to normal first, so all writes happen under normal's rules. Plan: `⚡ Execute plan now` / `💾 Save plan to disk (plans/plan-<slug>.md)` / `💬 Exit plan mode`. QA: `🛠️ Fix identified issues automatically` / `💾 Save report to disk (reports/qa-YYYY-MM-DD.md)` / `💬 Exit QA mode`. The freeform field stays in the current mode (refine the plan / dig deeper) and re-runs the menu.
+
+While **plan** or **qa** is active, the session is *structurally* read-only — nothing is written while planning or reviewing: `write`/`edit`, anchor-based `replace`/`insert`, and bash commands matching write patterns are all rejected at the tool-call layer, with the rejection pointing at the closing menu. MCP is deliberately **not** gated here — per-server MCP tool policy belongs to the permission system's config. `browser-probe`/`reviewer` children are unaffected (they have their own allowlists). The bash gate is pattern-based — strong but not a sandbox; `/mode off` is the honest escape hatch. Gate policies (`/gate`) do not apply in plan/qa — there is nothing to gate: the mode is the gate.
 
 ### Orchestrator mode
 

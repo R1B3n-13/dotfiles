@@ -219,7 +219,7 @@ if (process.argv.includes("--live")) {
 	const sessionFile = `${TMP}/live.jsonl`;
 	const child = spawnRpcChild({
 		id: "livetest",
-		args: ["--mode", "rpc", "--session", sessionFile, "--model", "commandcode/minimax/minimax-m3.1-flash-preview:free"],
+		args: ["--mode", "rpc", "--session", sessionFile, "--model", "commandcode/inclusionai/ling-3.1-flash-1019:free"],
 		env: {
 			PI_BLACKHOLE_PASSIVE: "1",
 			PI_SUBAGENT_SESSION: sessionFile,
@@ -269,7 +269,7 @@ if (process.argv.includes("--live")) {
 	const sf2 = `${TMP}/live-tools.jsonl`;
 	const child2 = spawn2({
 		id: "livetools",
-		args: ["--mode", "rpc", "--session", sf2, "--model", "commandcode/minimax/minimax-m3.1-flash-preview:free"],
+		args: ["--mode", "rpc", "--session", sf2, "--model", "commandcode/inclusionai/ling-3.1-flash-1019:free"],
 		env: { PI_BLACKHOLE_PASSIVE: "1" },
 		cwd: TMP,
 		sessionFile: sf2,

@@ -2,7 +2,7 @@
   "theme": "noctalia",
   "lastChangelogVersion": "1.4.0",
   "defaultProvider": "commandcode",
-  "defaultModel": "meituan/LongCat-2.0:free",
+  "defaultModel": "inclusionai/ling-3.1-flash-1019:free",
   "packages": [
     "npm:pi-commandcode-provider",
     "npm:pi-caveman",

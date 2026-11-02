@@ -58,5 +58,11 @@ if command -v node >/dev/null 2>&1; then
 	fi
 fi
 
+# Ponytail UI prefs (hideStatus/quietStartup) live outside the agent dir.
+if [ -f "$BAK/config/ponytail-config.json" ]; then
+	mkdir -p "$HOME/.config/ponytail"
+	cp "$BAK/config/ponytail-config.json" "$HOME/.config/ponytail/config.json"
+fi
+
 echo "Restored to $DST"
 echo "REMEMBER: auth.json was NOT backed up. Add your API keys (pi /login or edit auth.json)."

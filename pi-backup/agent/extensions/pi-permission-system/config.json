@@ -32,5 +32,6 @@
       ":(){ :|:& };:": "deny"
     },
     "external_directory": "ask"
-  }
+  },
+  "yoloMode": true
 }

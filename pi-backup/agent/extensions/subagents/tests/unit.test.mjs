@@ -63,6 +63,22 @@ const joined = rz.join("\n");
 assert(joined.includes("x".repeat(80)), "zoom shows untruncated wrapped args");
 assert(joined.includes("  detail line 2") && joined.includes("  detail line 3"), "result bodies indented in zoom");
 
+// ── per-pane scroll: two panes scroll independently
+const longA = Array.from({ length: 30 }, (_, i) => `A${i}`);
+const longB = Array.from({ length: 30 }, (_, i) => `B${i}`);
+const pair = [
+	{ name: "a", agent: "", startTime: now, statusText: "active", lines: [...longA] },
+	{ name: "b", agent: "", startTime: now, statusText: "active", lines: [...longB] },
+];
+const rp = renderRibbonLines(pair, 100, { contentLines: 4, focus: 0, scrollByName: new Map([["a", 10]]) }).map(strip);
+const leftCol = rp.join("\n");
+assert(leftCol.includes("A16") && !leftCol.includes("A29"), "per-pane scroll: scrolled pane moved");
+	assert(leftCol.includes("B29"), "per-pane scroll: other pane stays at tail");
+{
+	const rNoScroll = renderRibbonLines(pair, 100, { contentLines: 4, focus: 0 }).map(strip).join("\n");
+	assert(rNoScroll.includes("A29") && rNoScroll.includes("B29"), "no scroll → both panes at tail");
+}
+
 // ── dual buffers via trackDisplayState
 const child = { lines: [], fullLines: [], busy: false, exited: false, exitCode: null, lastError: null, id: "t", proc: null, sessionFile: "/x" };
 const ev = (type, extra = {}) => ({ type, ...extra });

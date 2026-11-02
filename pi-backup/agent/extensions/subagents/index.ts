@@ -829,7 +829,8 @@ let ribbonZoom = false;
 /** Focused pane index (into the full entry list). */
 let ribbonFocus = 0;
 /** Lines scrolled back from the tail inside the focused pane. */
-let paneScroll = 0;
+let paneScrollByName = new Map<string, number>();
+const scrollFor = (name: string): number => paneScrollByName.get(name) ?? 0;
 
 const DIM = "\x1b[90m";
 
@@ -900,6 +901,8 @@ export interface RibbonRenderOptions {
 	/** Focused pane index (into `entries`). */
 	focus?: number;
 	/** Lines scrolled back from the tail in the focused pane. */	scroll?: number;
+	/** Per-pane scroll override, keyed by entry name. */
+	scrollByName?: Map<string, number>;
 	/** Theme for dim styling of thinking lines (`┆ ` prefix). */
 	theme?: unknown;
 }
@@ -992,7 +995,7 @@ export function renderRibbonLines(entries: RibbonEntry[], width: number, opts: R
 	const total = entries.length;
 	if (total === 0) return [];
 	const zoom = opts.zoom === true;
-	const scroll = Math.max(0, Math.floor(opts.scroll ?? 0));
+	const scrollOf = (name: string): number => Math.max(0, Math.floor(opts.scrollByName?.get(name) ?? opts.scroll ?? 0));
 	const baseRows = Math.max(1, opts.contentLines ?? RIBBON_CONTENT_LINES);
 	const n = zoom ? 1 : Math.min(RIBBON_BOXES, total);
 
@@ -1033,6 +1036,7 @@ export function renderRibbonLines(entries: RibbonEntry[], width: number, opts: R
 		if (zoom) {
 			// Walk the full buffer from the tail, wrapping lines, until `rows`
 			// display rows (offset by the scroll) are covered.
+			const scroll = scrollOf(entry.name);
 			const maxScroll = Math.max(0, source.length - 1);
 			const back = Math.min(scroll, maxScroll);
 			let needed = rows;
@@ -1047,6 +1051,7 @@ export function renderRibbonLines(entries: RibbonEntry[], width: number, opts: R
 			if (row === 0 && text === "") text = entry.statusText;
 			return boxLine(` ${styleLine(text)}`, boxWidth, paneColor);
 		}
+		const scroll = scrollOf(entry.name);
 		const maxScroll = Math.max(0, entry.lines.length - rows);
 		const back = Math.min(scroll, maxScroll);
 		const from = Math.max(0, entry.lines.length - rows - back);
@@ -1072,7 +1077,7 @@ export function renderRibbonLines(entries: RibbonEntry[], width: number, opts: R
 	if (total > n) hints.push(`${ribbonOffset + 1}-${ribbonOffset + n} of ${total}`);
 	if (zoom) hints.push("Alt+E restore");
 	else hints.push("Alt+E zoom");
-	if (scroll > 0) hints.push("Alt+J to bottom");
+	if (scrollOf(entries[focus]?.name ?? "") > 0) hints.push("Alt+J to bottom");
 	if (hints.length > 0) lines.push(` ${hints.join(" · ")}`);
 	return lines;
 }
@@ -1187,10 +1192,12 @@ function updateWidget(): void {
 		(tui: any, theme: any) => ({
 			invalidate() {},
 			render(width: number) {
-				return renderRibbonLines(buildRibbonEntries(), width, {
+				const entries = buildRibbonEntries();
+				return renderRibbonLines(entries, width, {
 					zoom: ribbonZoom,
 					focus: ribbonFocus,
-					scroll: paneScroll,
+					scroll: paneScrollByName.get(entries[ribbonFocus]?.name ?? "") ?? 0,
+					scrollByName: new Map(paneScrollByName),
 					theme,
 				});
 			},
@@ -1421,7 +1428,7 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 	// var, inbox dirs, config.json, per-agent frontmatter). Warn when the
 	// installed version falls outside the range we validated against, so an
 	// upstream change surfaces as a visible notice instead of silent breakage.
-	const PERMISSION_SYSTEM_TESTED_MAJOR = 41;
+	const PERMISSION_SYSTEM_TESTED_MAJOR = 42;
 	function checkPermissionSystemCompat(ctx: ExtensionContext): void {
 		if (IS_SUBAGENT_PROCESS) return;
 		try {
@@ -1460,7 +1467,6 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 		description: "Subagent ribbon: focus previous pane",
 		handler: () => {
 			ribbonFocus = Math.max(0, ribbonFocus - 1);
-			paneScroll = 0;
 			updateWidget();
 		},
 	});
@@ -1468,7 +1474,6 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 		description: "Subagent ribbon: focus next pane",
 		handler: () => {
 			ribbonFocus = Math.max(0, Math.min(buildRibbonEntries().length - 1, ribbonFocus + 1));
-			paneScroll = 0;
 			updateWidget();
 		},
 	});
@@ -1476,47 +1481,25 @@ export default function subagentsExtension(pi: ExtensionAPI) {
 		description: "Subagent ribbon: zoom focused pane (toggle)",
 		handler: () => {
 			ribbonZoom = !ribbonZoom;
-			paneScroll = 0;
 			updateWidget();
 		},
 	});
 	pi.registerShortcut("alt+k", {
 		description: "Subagent ribbon: scroll focused pane up in history",
 		handler: () => {
-			paneScroll = Math.min(paneScroll + 6, 400);
+			const name = buildRibbonEntries()[ribbonFocus]?.name ?? "";
+			paneScrollByName.set(name, Math.min(scrollFor(name) + 6, 400));
 			updateWidget();
 		},
 	});
 	pi.registerShortcut("alt+j", {
 		description: "Subagent ribbon: scroll focused pane down in history",
 		handler: () => {
-			paneScroll = Math.max(0, paneScroll - 6);
+			const name = buildRibbonEntries()[ribbonFocus]?.name ?? "";
+			paneScrollByName.set(name, Math.max(0, scrollFor(name) - 6));
 			updateWidget();
 		},
 	});
-	pi.registerShortcut("alt+e", {
-		description: "Subagent ribbon: zoom focused pane (toggle)",
-		handler: () => {
-			ribbonZoom = !ribbonZoom;
-			paneScroll = 0;
-			updateWidget();
-		},
-	});
-	pi.registerShortcut("alt+k", {
-		description: "Subagent ribbon: scroll focused pane up in history",
-		handler: () => {
-			paneScroll = Math.min(paneScroll + 6, 400);
-			updateWidget();
-		},
-	});
-	pi.registerShortcut("alt+j", {
-		description: "Subagent ribbon: scroll focused pane down in history",
-		handler: () => {
-			paneScroll = Math.max(0, paneScroll - 6);
-			updateWidget();
-		},
-	});
-
 
 	registerSubagentTool(pi);
 	registerSubagentMessageTool(pi);
@@ -1535,8 +1518,9 @@ const WORKFLOW_DIR = getAgentConfigDir();
 
 const MODES: Record<string, { icon: string; label: string; file: string }> = {
 	orchestrator: { icon: "🧭", label: "orchestrator", file: "orchestrator-workflow.md" },
-	plan: { icon: "🔍", label: "plan", file: "plan-workflow.md" },
-	qa: { icon: "🧪", label: "qa", file: "qa-workflow.md" },
+	// plan/qa icons: 📋 / 🔍
+	plan: { icon: "📋", label: "plan", file: "plan-workflow.md" },
+	qa: { icon: "🔍", label: "qa", file: "qa-workflow.md" },
 };
 
 /** Skills kept visible per mode; the catalog is cheap (~1.2k tokens) but a
@@ -1564,13 +1548,43 @@ function loadModeText(mode: string): string {
 	return text;
 }
 
-/** Persist the active mode so it survives restarts (loadshedding, /resume). */
-const MODE_STATE_PATH = join(getAgentConfigDir(), "mode-state.json");
+/** Per-session boot state (mode + gate policy), stored INSIDE the session's
+ * own artifacts dir: every session boots 💬 normal unless THIS session was
+ * explicitly switched and restarted. Session-scoped by construction. */
+interface SessionPaths { sessionDir: string; sessionId: string }
+let sessionPaths: SessionPaths | null = null;
+
+function bootStatePath(): string | null {
+	if (!sessionPaths) return null;
+	return join(sessionPaths.sessionDir, "artifacts", sessionPaths.sessionId, "boot-state.json");
+}
+
+function footerFor(mode: string | null): string {
+	if (mode && MODES[mode]) return `${MODES[mode].icon} ${MODES[mode].label}`;
+	// normal is a first-class state: indicator + gate (gate applies here)
+	return `💬 normal · gate ${gatePolicy}`;
+}
+
+function setFooter(mode: string | null): void {
+	latestCtx?.ui.setStatus("mode", footerFor(mode));
+}
 
 function persistMode(mode: string | null): void {
 	try {
-		if (mode) writeFileSync(MODE_STATE_PATH, JSON.stringify({ mode }), "utf8");
-		else rmSync(MODE_STATE_PATH, { force: true });
+		const p = bootStatePath();
+		if (!p) return;
+		mkdirSync(dirname(p), { recursive: true });
+		writeFileSync(p, JSON.stringify({ mode, gate: gatePolicy }), "utf8");
+	} catch {}
+}
+
+function persistGate(): void {
+	try {
+		const p = bootStatePath();
+		if (!p) return;
+		mkdirSync(dirname(p), { recursive: true });
+		const saved = existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : {};
+		writeFileSync(p, JSON.stringify({ mode: saved.mode ?? activeMode, gate: gatePolicy }), "utf8");
 	} catch {}
 }
 
@@ -1591,53 +1605,66 @@ function setMode(pi: ExtensionAPI, mode: string | null): void {
 			api.setActiveTools?.(all);
 		}
 	}
-	if (mode) {
-		const m = MODES[mode];
-		latestCtx?.ui.setStatus("mode", `${m.icon} ${m.label}`);
-	} else {
-		latestCtx?.ui.setStatus("mode", undefined);
-	}
+	setFooter(mode);
 	void pi;
 }
 
 
 /**
- * Mode write-gate: while plan/qa is active the main session is read-only for
- * code — .md deliverables stay writable. replace/insert are blocked outright
- * because their path resolution is anchor-based and cannot be verified here.
- * Bash is gated by a write-pattern list — strong but not bulletproof (a
- * determined agent can find shell escapes); the mode is a discipline, /mode
- * off is the honest escape hatch. mcp/mcpScript stay open: MCP policy is
- * the permission system's domain, not this gate's.
+ * Mode write-gate: while plan/qa is active the main session is STRUCTURALLY
+ * read-only — nothing is written while planning or reviewing; deliverables
+ * are written only after the closing menu switches the session to normal
+ * mode, where the permission system governs writes. Bash write-patterns are
+ * heuristic (a determined agent can find shell escapes); /mode off is the
+ * honest escape hatch. mcp/mcpScript stay open: MCP policy is the permission
+ * system's domain, not this gate's.
  */
 const MODE_READ_ONLY = new Set(["plan", "qa"]);
-const MD_PATH_RE = /\.md$/i;
 const BASH_WRITE_RE =
 	/(^|[\s;&|(])(>>?|<<|\btee\b|\bsed\s+(-[a-zA-Z]*i|--in-place)|\b(rm|mv|cp|mkdir|touch|chmod|chown|truncate)\b|\bgit\s+(add|commit|push|pull|reset|checkout|merge|rebase|clean|rm)\b|\bnpm(\s+ci)?\s+(i|install|uninstall)\b|\b(pip|pip3|cargo|uv)\s+install\b|\bppid?\b|\byarn\s+(add|remove)\b)/;
 
+/** Write-gate policy: /gate presets the permission system posture in the
+ * writer modes (normal/orchestrator); plan/qa are policy-independent (they
+ * are structurally read-only). Default: ask. Persisted per session. */
+type GatePolicy = "strict" | "ask" | "auto";
+let gatePolicy: GatePolicy = "ask";
+
+/** Permission-system yolo flag (same config.json as the rules): yolo rewrites
+ * ask→allow at composition; deny rules always win. /gate auto enables it,
+ * /gate ask|strict disables it. */
+function setPermissionYolo(enabled: boolean): void {
+	try {
+		const p = join(getAgentConfigDir(), "extensions", "pi-permission-system", "config.json");
+		let cfg: Record<string, unknown> = {};
+		try { cfg = JSON.parse(readFileSync(p, "utf8")) as Record<string, unknown>; } catch { /* fresh */ }
+		if (cfg.yoloMode === enabled) return;
+		cfg.yoloMode = enabled;
+		writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n", "utf8");
+	} catch { /* best-effort; popups just stay on */ }
+}
+
 function registerModeWriteGate(pi: ExtensionAPI): void {
 	if (IS_SUBAGENT_PROCESS) return;
+
 	pi.on("tool_call", (event) => {
 		if (!activeMode || !MODE_READ_ONLY.has(activeMode)) return;
 		const toolName = (event as any).toolName as string;
 		const args = ((event as any).args ?? {}) as Record<string, unknown>;
-		const off = " Switch with /mode off (or ask the user) if code changes are genuinely needed.";
-		// mcp/mcpScript are NOT gated here — MCP tool policy (per-server
-		// allow/ask/deny, including write-capable servers) is the permission
-		// system's domain; duplicating it as a blanket ban would break
-		// legitimate read use (docs lookups etc.).
-		if (toolName === "replace" || toolName === "insert") {
-			return { block: true, reason: `Mode ${activeMode} allows editing only .md files; anchor-based edits are blocked because their target file cannot be verified here. Use the built-in edit tool (path + oldText/newText) on your .md deliverable instead.${off}` };
-		}
+		// plan/qa are STRUCTURALLY read-only: hard block, no md carve-out, no
+		// ask/auto branches (gate policies apply in normal/orchestrator only —
+		// /gate reports n/a here). Deliverables write AFTER the closing menu
+		// switches the session to normal.
+		const off = ` Then run the closing menu: every action switches the session to normal first (\`/mode off\` does the same without the menu).`;
 		if (toolName === "write" || toolName === "edit") {
-			const target = String(args.path ?? "");
-			if (MD_PATH_RE.test(target)) return;
-			return { block: true, reason: `Mode ${activeMode} can only create or edit .md files (got "${target || "<no path>"}").${off}` };
+			return { block: true, reason: `Mode ${activeMode} is read-only: nothing is written while ${activeMode} is active (got "${String(args.path ?? "(no path)")}"). Present your plan/findings in chat and run the closing menu.${off}` };
+		}
+		if (toolName === "replace" || toolName === "insert") {
+			return { block: true, reason: `Mode ${activeMode} is read-only: anchor-based edits are blocked in ${activeMode}. Use \`/mode off\` to edit.${off}` };
 		}
 		if (toolName === "bash") {
 			const cmd = String(args.command ?? "");
 			if (BASH_WRITE_RE.test(cmd)) {
-				return { block: true, reason: `Mode ${activeMode} blocks shell writes (redirects, file mutations, package installs). Write deliverables with the write tool (.md only).${off}` };
+				return { block: true, reason: `Mode ${activeMode} is read-only: shell writes (redirects, file mutations, package installs) are blocked.${off}` };
 			}
 		}
 	});
@@ -1679,6 +1706,31 @@ function registerOrchestratorMode(pi: ExtensionAPI): void {
 		},
 	});
 
+	// /gate — write-gate policy for plan/qa modes (stacks with any mode).
+	pi.registerCommand("gate", {
+		description: "Write-gate policy (normal/orchestrator): /gate ask|auto|strict (no arg = show)",
+		handler: async (args, ctx) => {
+			const v = args.trim().toLowerCase();
+			if (activeMode && MODE_READ_ONLY.has(activeMode)) {
+				ctx.ui.notify(`Gate is n/a in ${activeMode}: the mode is structurally read-only. Gate policies apply in normal and orchestrator.`, "info");
+				return;
+			}
+			if (!v) {
+				ctx.ui.notify(`Gate: ${gatePolicy} — ask = permission popups as configured · auto = workspace ungated + permission yolo · strict = same as ask without yolo`, "info");
+				return;
+			}
+			if (!["ask", "auto", "strict"].includes(v)) {
+				ctx.ui.notify('Unknown policy. Use /gate ask, /gate auto, or /gate strict.', "warning");
+				return;
+			}
+			gatePolicy = v as GatePolicy;
+			persistGate();
+			setPermissionYolo(v === "auto");
+			setFooter(activeMode);
+			ctx.ui.notify(`Gate policy: ${v} — permission system ${v === "auto" ? "yolo: on (deny rules still enforced)" : "yolo: off"}`, "info");
+		},
+	});
+
 	// Back-compat: /orchestrator toggles orchestrator mode.
 	pi.registerCommand("orchestrator", {
 		description: "Toggle orchestrator mode (same as /mode orchestrator)",
@@ -1692,16 +1744,36 @@ function registerOrchestratorMode(pi: ExtensionAPI): void {
 	let resumeHintPending: string[] | null = null;
 	pi.on("session_start", (_event, ctx) => {
 		if (IS_SUBAGENT_PROCESS || !ctx?.sessionManager) return;
-		// Restore the persisted workflow mode, if any.
+		latestCtx = ctx as typeof latestCtx;
 		try {
-			const saved = JSON.parse(readFileSync(MODE_STATE_PATH, "utf8"));
+			const sessionDir = ctx.sessionManager.getSessionDir();
+			const sessionId = ctx.sessionManager.getSessionId();
+			if (sessionDir && sessionId) sessionPaths = { sessionDir, sessionId };
+		} catch {}
+		// Restore THIS session's boot state, or start clean at 💬 normal.
+		try {
+			const p = bootStatePath();
+			const saved = p && existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null;
+			if (typeof saved?.gate === "string" && ["strict", "ask", "auto"].includes(saved.gate)) {
+				gatePolicy = saved.gate as typeof gatePolicy;
+			} else {
+				gatePolicy = "ask";
+			}
+			setPermissionYolo(gatePolicy === "auto");
 			if (saved && typeof saved.mode === "string" && MODES[saved.mode]) {
 				activeMode = saved.mode;
-				latestCtx = ctx as typeof latestCtx;
-				ctx.ui.setStatus("mode", `${MODES[saved.mode].icon} ${MODES[saved.mode].label}`);
-				ctx.ui.notify(`Mode restored: ${MODES[saved.mode].icon} ${saved.mode}`, "info");
+				setFooter(activeMode);
+				ctx.ui.notify(`Mode restored: ${MODES[saved.mode].icon} ${saved.mode} · gate: ${gatePolicy}`, "info");
+			} else {
+				activeMode = null;
+				gatePolicy = "ask";
+				setPermissionYolo(false);
+				setFooter(null);
 			}
-		} catch {}
+		} catch {
+			activeMode = null;
+			setFooter(null);
+		}
 		try {
 			const inFlight = findInFlightChildren(ctx);
 			if (inFlight.length > 0) resumeHintPending = inFlight.map((c) => c.name);
