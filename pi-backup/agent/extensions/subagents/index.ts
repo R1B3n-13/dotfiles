@@ -1765,6 +1765,11 @@ function registerOrchestratorMode(pi: ExtensionAPI): void {
 				setFooter(activeMode);
 				ctx.ui.notify(`Mode restored: ${MODES[saved.mode].icon} ${saved.mode} · gate: ${gatePolicy}`, "info");
 			} else {
+				// INTENDED default (user-endorsed): a fresh session boots
+				// 💬 normal with the ask posture — gate policy AND the
+				// permission system's yolo flag both reset, so a new session
+				// always asks before anything risky. A session that ever
+				// changed its gate keeps its saved policy on reopen.
 				activeMode = null;
 				gatePolicy = "ask";
 				setPermissionYolo(false);
