@@ -1560,9 +1560,21 @@ function bootStatePath(): string | null {
 }
 
 function footerFor(mode: string | null): string {
-	if (mode && MODES[mode]) return `${MODES[mode].icon} ${MODES[mode].label}`;
-	// normal is a first-class state: indicator + gate (gate applies here)
-	return `💬 normal · gate ${gatePolicy}`;
+	if (mode && MODES[mode]) {
+		return MODE_READ_ONLY.has(mode)
+			? `${MODES[mode].icon} ${MODES[mode].label}`
+			: `${MODES[mode].icon} ${MODES[mode].label} · ${gatePolicy}`;
+	}
+	return `💬 normal · ${gatePolicy}`;
+}
+
+/** The permission system re-adds its own "yolo" footer slot on every turn
+ * prep while yolo is on — after any policy write, clear it so the footer
+ * reads exactly once through our slot. */
+function clearPermissionStatusSlot(): void {
+	try {
+		latestCtx?.ui.setStatus("pi-permission-system", undefined);
+	} catch {}
 }
 
 function setFooter(mode: string | null): void {
@@ -1632,6 +1644,8 @@ let gatePolicy: GatePolicy = "ask";
 /** Permission-system yolo flag (same config.json as the rules): yolo rewrites
  * ask→allow at composition; deny rules always win. /gate auto enables it,
  * /gate ask|strict disables it. */
+const PERM_STATUS_KEY = "pi-permission-system"; // their footer slot
+
 function setPermissionYolo(enabled: boolean): void {
 	try {
 		const p = join(getAgentConfigDir(), "extensions", "pi-permission-system", "config.json");
@@ -1640,6 +1654,7 @@ function setPermissionYolo(enabled: boolean): void {
 		if (cfg.yoloMode === enabled) return;
 		cfg.yoloMode = enabled;
 		writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n", "utf8");
+		clearPermissionStatusSlot();
 	} catch { /* best-effort; popups just stay on */ }
 }
 
@@ -1774,10 +1789,12 @@ function registerOrchestratorMode(pi: ExtensionAPI): void {
 				gatePolicy = "ask";
 				setPermissionYolo(false);
 				setFooter(null);
+				clearPermissionStatusSlot();
 			}
 		} catch {
 			activeMode = null;
 			setFooter(null);
+			clearPermissionStatusSlot();
 		}
 		try {
 			const inFlight = findInFlightChildren(ctx);

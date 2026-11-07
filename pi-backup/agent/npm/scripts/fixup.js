@@ -49,3 +49,22 @@ for (const pkgName of ["pi-lsp-adapter", "pi-smart-fetch"]) {
 		fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 	}
 }
+
+// 3. pi-permission-system: silence its own "yolo" footer slot — our mode
+// footer already shows the resulting policy (normal.auto etc.), and their
+// slot re-renders on every turn prep, duplicating it. Patch is tolerant:
+// only applied when the exact code is present.
+{
+	const statusPath = path.join(nm, "@gotgenes", "pi-permission-system", "src", "config", "status.ts");
+	try {
+		let t = fs.readFileSync(statusPath, "utf8");
+		const orig = "return isYoloModeEnabled(config)\n    ? PERMISSION_SYSTEM_YOLO_STATUS_VALUE\n    : undefined;";
+		const patched = "return undefined; // [subagents-fixup] yolo footer slot disabled — mode slot shows the policy";
+		if (t.includes(patched)) {
+			// already patched
+		} else if (t.includes(orig)) {
+			t = t.replace(orig, patched);
+			fs.writeFileSync(statusPath, t);
+		}
+	} catch {}
+}
