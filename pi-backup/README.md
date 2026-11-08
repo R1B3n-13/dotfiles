@@ -66,7 +66,7 @@ Four modes — normal is a first-class state, not an absence:
 
 `/mode orchestrator|plan|qa` switches (no args shows current; `/mode off`/`/orchestrator` menu exits). `/gate ask|auto|strict` presets the permission-system posture in the writer modes (auto = permission yolo: asks become allows, `deny` rules still enforce); `/gate` in plan/qa reports n/a.
 
-**Session-scoped state.** Mode + gate live in the session's own artifacts dir — a fresh session always boots 💬 normal; only the session where you actually switched restores that mode on reopen. No cross-session bleed.
+**Session-scoped state.** Mode + gate live in the session's own artifacts dir — a fresh session always boots 💬 normal with gate `ask` (popups on); a session that ever changed its gate keeps that policy on reopen. Gate enforcement is per-session: `fixup.js` patches the permission system to prefer the `PI_SESSION_YOLO` env var over the shared config file (each session is its own process → independent policies, no last-boot-wins). Children spawn from the parent's env, so they inherit the parent's gate policy — auto is auto in children too, while yolo still only rewrites ask→allow (deny rules like `rm -rf`, `.env`, `~/.ssh` stay enforced everywhere).
 
 **Closing menus (deliverables).** Plan and QA end with a mandatory `ask_user` menu: `[Selecting 1-3 switches to Normal mode]` — every numbered action exits to normal first, so all writes happen under normal's rules. Plan: `⚡ Execute plan now` / `💾 Save plan to disk (plans/plan-<slug>.md)` / `💬 Exit plan mode`. QA: `🛠️ Fix identified issues automatically` / `💾 Save report to disk (reports/qa-YYYY-MM-DD.md)` / `💬 Exit QA mode`. The freeform field stays in the current mode (refine the plan / dig deeper) and re-runs the menu.
 
@@ -107,7 +107,7 @@ The point is context economics: the orchestrator spends its own window only on p
 
 ### Plan mode
 
-`/mode plan` turns the session into a planning session: scout and researcher run the discovery in parallel (files, web), the orchestrator integrates and clarifies with the user, then drafts a reviewed spec. The adopted gstack review skills (`office-hours`, `plan-ceo-review`, `plan-eng-review`, `investigate`) are available as on-demand skill loads; the output is a spec, not code. When a plan genuinely needs a live page (JS-rendered docs, a visual reference), the orchestrator dispatches `browser-probe` with a narrowly-scoped read-only browse task — on explicit request, not by default.
+`/mode plan` turns the session into a planning session: scout and researcher run the discovery in parallel (files, web), the orchestrator integrates and clarifies with the user, then drafts a reviewed spec. Skill visibility is two-tier: the seven adopted **gstack workflow lenses** (`office-hours`, `plan-ceo-review`, `plan-eng-review`, `review`, `investigate`, `context-save`, `context-restore`) are scoped per mode — each discipline-carrying mode keeps only the lenses built for it, so office-hours never fights the orchestrator workflow. Everything else — package skills like `shopify`/`ucp`, `ask-user`, `ponytail`, `caveman` — is visible in every mode, so orchestrator/qa/plan keep doc access; the output is a spec, not code. When a plan genuinely needs a live page (JS-rendered docs, a visual reference), the orchestrator dispatches `browser-probe` with a narrowly-scoped read-only browse task — on explicit request, not by default.
 
 ### QA mode
 

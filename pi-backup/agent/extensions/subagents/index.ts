@@ -1526,6 +1526,17 @@ const MODES: Record<string, { icon: string; label: string; file: string }> = {
 /** Skills kept visible per mode; the catalog is cheap (~1.2k tokens) but a
  * mode's context should only carry the lenses it can actually run. When no
  * mode is active, everything stays visible. */
+
+
+// Mode-scoped GSTACK WORKFLOW LENSES only. These seven adopted skills each
+// carry a way of working that can fight a mode's own injected workflow
+// (office-hours' founder interview vs orchestrator dispatch, etc.), so a mode
+// keeps only the lenses built for it. Everything else — shopify, ucp,
+// ask-user, ponytail, caveman, any future package skill — stays visible in
+// every mode.
+const GSTACK_SKILL_LENS = new Set([
+	"office-hours", "plan-ceo-review", "plan-eng-review", "review", "investigate", "context-save", "context-restore",
+]);
 const MODE_SKILLS: Record<string, string[]> = {
 	orchestrator: ["investigate", "context-save", "context-restore", "review"],
 	plan: ["office-hours", "plan-ceo-review", "plan-eng-review", "investigate", "review"],
@@ -1563,9 +1574,9 @@ function footerFor(mode: string | null): string {
 	if (mode && MODES[mode]) {
 		return MODE_READ_ONLY.has(mode)
 			? `${MODES[mode].icon} ${MODES[mode].label}`
-			: `${MODES[mode].icon} ${MODES[mode].label} · ${gatePolicy}`;
+			: `${MODES[mode].icon} ${MODES[mode].label} • ${gatePolicy}`;
 	}
-	return `💬 normal · ${gatePolicy}`;
+	return `💬 normal • ${gatePolicy}`;
 }
 
 /** The permission system re-adds its own "yolo" footer slot on every turn
@@ -1647,13 +1658,12 @@ let gatePolicy: GatePolicy = "ask";
 const PERM_STATUS_KEY = "pi-permission-system"; // their footer slot
 
 function setPermissionYolo(enabled: boolean): void {
+	// Per-session yolo: each pi session is its own process, and the
+	// fixup-patched permission system prefers PI_SESSION_YOLO over the
+	// shared config file — so concurrent sessions keep independent gate
+	// policies (the file stays a fallback-only constant, never written).
 	try {
-		const p = join(getAgentConfigDir(), "extensions", "pi-permission-system", "config.json");
-		let cfg: Record<string, unknown> = {};
-		try { cfg = JSON.parse(readFileSync(p, "utf8")) as Record<string, unknown>; } catch { /* fresh */ }
-		if (cfg.yoloMode === enabled) return;
-		cfg.yoloMode = enabled;
-		writeFileSync(p, JSON.stringify(cfg, null, 2) + "\n", "utf8");
+		process.env.PI_SESSION_YOLO = enabled ? "1" : "0";
 		clearPermissionStatusSlot();
 	} catch { /* best-effort; popups just stay on */ }
 }
@@ -1769,28 +1779,28 @@ function registerOrchestratorMode(pi: ExtensionAPI): void {
 		try {
 			const p = bootStatePath();
 			const saved = p && existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null;
+			// Gate policy is session-owned: a fresh session boots ASK, a
+			// session that ever changed its gate keeps its saved policy.
+			// The boot writes the policy into the permission config so the
+			// ask/auto/posture is enforced, not just displayed. Child
+			// processes never reach this block, so probing/selftest spawns
+			// cannot stomp the flag. Limitation: with two live sessions
+			// holding DIFFERENT policies the last boot wins (global file).
+			let bootGate: typeof gatePolicy = "ask";
 			if (typeof saved?.gate === "string" && ["strict", "ask", "auto"].includes(saved.gate)) {
-				gatePolicy = saved.gate as typeof gatePolicy;
-			} else {
-				gatePolicy = "ask";
+				bootGate = saved.gate as typeof gatePolicy;
 			}
-			setPermissionYolo(gatePolicy === "auto");
+			gatePolicy = bootGate;
+			setPermissionYolo(bootGate === "auto");
 			if (saved && typeof saved.mode === "string" && MODES[saved.mode]) {
 				activeMode = saved.mode;
 				setFooter(activeMode);
-				ctx.ui.notify(`Mode restored: ${MODES[saved.mode].icon} ${saved.mode} · gate: ${gatePolicy}`, "info");
+				ctx.ui.notify(`Mode restored: ${saved.mode} · gate: ${gatePolicy}`, "info");
 			} else {
-				// INTENDED default (user-endorsed): a fresh session boots
-				// 💬 normal with the ask posture — gate policy AND the
-				// permission system's yolo flag both reset, so a new session
-				// always asks before anything risky. A session that ever
-				// changed its gate keeps its saved policy on reopen.
 				activeMode = null;
-				gatePolicy = "ask";
-				setPermissionYolo(false);
 				setFooter(null);
-				clearPermissionStatusSlot();
 			}
+			clearPermissionStatusSlot();
 		} catch {
 			activeMode = null;
 			setFooter(null);
@@ -1802,11 +1812,16 @@ function registerOrchestratorMode(pi: ExtensionAPI): void {
 		} catch {}
 	});
 	pi.on("before_agent_start", (event) => {
-		// Mode-scoped skill catalog: keep only the lenses this mode can run.
-		if (activeMode && event.systemPromptOptions?.skills && MODE_SKILLS[activeMode]) {
+				// Mode-scoped gstack lenses: drop only the workflow skills that were
+		// not built for this mode. Global/package skills are never filtered.
+		if (activeMode && MODE_SKILLS[activeMode]) {
+			const opts = event.systemPromptOptions as { skills?: Array<{ name?: string }> };
 			const keep = new Set(MODE_SKILLS[activeMode]);
-			const opts = event.systemPromptOptions as { skills?: Array<{ name?: string; filePath?: string }> };
-			if (Array.isArray(opts.skills)) opts.skills = opts.skills.filter((sk) => !!sk?.name && keep.has(sk.name));
+			if (Array.isArray(opts.skills)) {
+				opts.skills = opts.skills.filter(
+					(sk) => !sk?.name || !GSTACK_SKILL_LENS.has(sk.name) || keep.has(sk.name),
+				);
+			}
 		}
 		let systemPrompt = event.systemPrompt;
 		if (resumeHintPending && resumeHintPending.length > 0) {

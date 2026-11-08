@@ -50,6 +50,25 @@ for (const pkgName of ["pi-lsp-adapter", "pi-smart-fetch"]) {
 	}
 }
 
+
+// 4. pi-permission-system: session-scoped yolo. The gate runner's only yolo
+// reader prefers PI_SESSION_YOLO (set per-session by the subagents extension)
+// over the shared config file, so concurrent sessions keep independent gate
+// policies. Only the child fallback path (env unset) ever consults the file.
+{
+	const idxPath = path.join(nm, "@gotgenes", "pi-permission-system", "src", "index.ts");
+	try {
+		let t = fs.readFileSync(idxPath, "utf8");
+		const orig = "const isYoloEnabled = (): boolean => isYoloModeEnabled(configStore.current());";
+		const patched = "const isYoloEnabled = (): boolean => { const v = process.env.PI_SESSION_YOLO; return v === \"1\" ? true : v === \"0\" ? false : isYoloModeEnabled(configStore.current()); }; // [subagents-fixup] per-session gate yolo via env";
+		if (t.includes(patched)) {
+			// already patched
+		} else if (t.includes(orig)) {
+			t = t.replace(orig, patched);
+			fs.writeFileSync(idxPath, t);
+		}
+	} catch {}
+}
 // 3. pi-permission-system: silence its own "yolo" footer slot — our mode
 // footer already shows the resulting policy (normal.auto etc.), and their
 // slot re-renders on every turn prep, duplicating it. Patch is tolerant:
